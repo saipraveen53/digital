@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "nativewind",
-    "slug": "nativewind",
+    "name": "nnnn",
+    "slug": "nnnn",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "nativewind",
+    "scheme": "nnnn",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -19,7 +19,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.saipraveen53.nativewind"
     },
     "web": {
       "bundler": "metro",
