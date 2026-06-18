@@ -10,11 +10,10 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import Animated, {
   interpolate,
@@ -28,17 +27,17 @@ import { rootApi } from '../utils/axiosInstance';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isDesktop = screenWidth >= 1024;
 
-// Burnt sienna explicit design specifications theme setup mapping
+// ✅ FIXED: Updated to premium emerald green color theme matching website images verbatim
 const COLORS = {
-  background: '#F5F5DC',      // Soft cream beige background tone
-  cardBg: 'rgba(255, 255, 255, 0.82)', 
-  textDark: '#4A231A',       // Deep rich warm slate
-  textLight: '#8C665C',      
-  primary: '#E35336',        // Vibrant sienna brand focus
-  secondary: '#F4A460',      // Balanced soft sandy orange accent
-  darkSienna: '#A0522D',     // Luxury solid boundary tint
-  border: 'rgba(160, 82, 45, 0.12)',
-  accentBg: 'rgba(244, 164, 96, 0.15)',
+  background: '#FAF9F5',      // Clean minimalist crisp warm cream background tone
+  cardBg: 'rgba(255, 255, 255, 0.90)', 
+  textDark: '#11231D',       // Strong dark slate accent green text header tone
+  textLight: '#576860',      // Smooth soothing mid-tone slate green for subtitles
+  primary: '#336956',        // Brand Deep Emerald Green focus color from panels
+  secondary: '#E09643',      // Warm balanced progress amber variant from gauge fill
+  darkSienna: '#1B4235',     // Luxury dense forest green boundary tint
+  border: 'rgba(51, 105, 86, 0.08)',
+  accentBg: 'rgba(51, 105, 86, 0.06)',
 };
 
 // API Response Structures
@@ -88,7 +87,6 @@ export default function SettingsScreen() {
   const fetchProfile = async () => {
     setGlobalLoading(true);
     try {
-      // GET Request: /api/user/profile
       const response = await rootApi.get<UserProfileData>('/api/user/profile');
       if (response.data) {
         setProfile(response.data);
@@ -114,8 +112,6 @@ export default function SettingsScreen() {
     }
 
     setUpdating(true);
-    
-    // Constructing request payload structure specified by requirement metrics
     const payload = {
       userId: profile?.userId || 'USER00002',
       name: formName.trim(),
@@ -127,10 +123,7 @@ export default function SettingsScreen() {
     };
 
     try {
-      // PUT Request: /api/user/profile/update
       await rootApi.put('/api/user/profile/update', payload);
-      
-      // Update local view state optimistically
       setProfile({
         ...profile,
         userId: payload.userId,
@@ -152,7 +145,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // --- 3D Parallax Coordinate Interceptors (Anti-Direction Spheres Layout Engine) ---
   const ballStyle1 = useAnimatedStyle(() => ({
     transform: [
       { translateY: interpolate(scrollY.value, [0, screenHeight], [0, -220]) },
@@ -207,7 +199,7 @@ export default function SettingsScreen() {
               
               {/* Profile Bio Widget Card Layout */}
               <View style={styles.glassPremiumDashboardCard}>
-                <View style={[styles.profileAvatar3DBadgeCircle, { backgroundColor: COLORS.primary }]}>
+                <View style={[styles.profileSidebarAvatarCircle, { backgroundColor: COLORS.primary }]}>
                   <Text style={styles.profileAvatarTextGraphic}>
                     {profile?.name?.[0]?.toUpperCase() || 'U'}
                   </Text>
@@ -259,7 +251,7 @@ export default function SettingsScreen() {
             <View style={isDesktop ? styles.desktopFlexibleColumn : styles.fullWidthPanelStack}>
               
               {/* Preferences Configuration block */}
-              <View style={styles.glassPremiumDashboardCard}>
+              {/*<View style={styles.glassPremiumDashboardCard}>
                 <Text style={[styles.cardSectionMiniHeadingTitleText, { color: COLORS.textDark }]}>System Preferences</Text>
 
                 <View style={styles.switchRowInteractionFlex}>
@@ -300,22 +292,22 @@ export default function SettingsScreen() {
                     thumbColor="white"
                   />
                 </View>
-              </View>
+              </View>*/}
 
               {/* Security operations exit card container panel */}
               <View style={styles.glassPremiumDashboardCard}>
                 <Text style={[styles.cardSectionMiniHeadingTitleText, { color: COLORS.textDark }]}>Account Verification & Exit</Text>
                 
-                <TouchableOpacity style={styles.actionRowTileAnchorButton} onPress={() => Alert.alert('Security', 'System tokens are encrypted natively.')}>
-                  <Feather name="shield" size={18} color={COLORS.textDark} />
+                {/*<TouchableOpacity style={styles.actionRowTileAnchorButton} onPress={() => Alert.alert('Security', 'System tokens are encrypted natively.')}>
+                  <Feather name="shield" size={18} color={COLORS.primary} />
                   <Text style={[styles.actionRowTileAnchorButtonText, { color: COLORS.textDark }]}>Data Protection Integrity</Text>
                   <Feather name="chevron-right" size={16} color={COLORS.textLight} style={{ marginLeft: 'auto' }} />
-                </TouchableOpacity>
+                </TouchableOpacity>*/}
 
                 <TouchableOpacity style={styles.actionRowTileAnchorButton} onPress={logout}>
-                  <Feather name="log-out" size={18} color={COLORS.primary} />
-                  <Text style={[styles.actionRowTileAnchorButtonText, { color: COLORS.primary, fontWeight: '700' }]}>Terminate Secure Session</Text>
-                  <Feather name="chevron-right" size={16} color={COLORS.primary} style={{ marginLeft: 'auto' }} />
+                  <Feather name="log-out" size={18} color="#DC2626" />
+                  <Text style={[styles.actionRowTileAnchorButtonText, { color: '#DC2626', fontWeight: '700' }]}>Terminate Secure Session</Text>
+                  <Feather name="chevron-right" size={16} color="#DC2626" style={{ marginLeft: 'auto' }} />
                 </TouchableOpacity>
               </View>
 
@@ -346,7 +338,7 @@ export default function SettingsScreen() {
               <TextInput
                 style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
                 placeholder="Nishi"
-                placeholderTextColor="#A0522D"
+                placeholderTextColor={COLORS.textMuted}
                 value={formName}
                 onChangeText={setFormName}
               />
@@ -355,7 +347,7 @@ export default function SettingsScreen() {
               <TextInput
                 style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
                 placeholder="example@gmail.com"
-                placeholderTextColor="#A0522D"
+                placeholderTextColor={COLORS.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={formEmail}
@@ -368,7 +360,7 @@ export default function SettingsScreen() {
                   <TextInput
                     style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
                     placeholder="23"
-                    placeholderTextColor="#A0522D"
+                    placeholderTextColor={COLORS.textMuted}
                     keyboardType="number-pad"
                     value={formAge}
                     onChangeText={setFormAge}
@@ -379,7 +371,7 @@ export default function SettingsScreen() {
                   <TextInput
                     style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
                     placeholder="MALE"
-                    placeholderTextColor="#A0522D"
+                    placeholderTextColor={COLORS.textMuted}
                     value={formGender}
                     onChangeText={setFormGender}
                   />
@@ -390,7 +382,7 @@ export default function SettingsScreen() {
               <TextInput
                 style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
                 placeholder="STUDENT"
-                placeholderTextColor="#A0522D"
+                placeholderTextColor={COLORS.textMuted}
                 value={formRole}
                 onChangeText={setFormRole}
               />
@@ -439,14 +431,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  // Anti-Direction 3D Soft Blurred Spheres Layout Matrix Design
   blurredLiquidSphere1: {
     position: 'absolute',
     width: 260,
     height: 260,
     borderRadius: 130,
     backgroundColor: COLORS.secondary,
-    opacity: 0.28,
+    opacity: 0.22,
     top: '10%',
     left: -80,
     ...Platform.select({
@@ -460,7 +451,7 @@ const styles = StyleSheet.create({
     height: 320,
     borderRadius: 160,
     backgroundColor: COLORS.primary,
-    opacity: 0.16,
+    opacity: 0.14,
     bottom: '22%',
     right: -100,
     ...Platform.select({
@@ -474,25 +465,13 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 100,
     backgroundColor: COLORS.darkSienna,
-    opacity: 0.22,
+    opacity: 0.18,
     top: '55%',
     left: '35%',
     ...Platform.select({
       web: { filter: 'blur(70px)' },
     }),
     zIndex: 0,
-  },
-  floatingVectorLeft: {
-    position: 'absolute',
-    left: -40,
-    top: screenHeight * 0.12,
-    zIndex: 1,
-  },
-  floatingVectorRight: {
-    position: 'absolute',
-    right: -50,
-    bottom: screenHeight * 0.15,
-    zIndex: 1,
   },
   scrollContainerLayoutEngine: {
     paddingHorizontal: 24,
@@ -536,7 +515,7 @@ const styles = StyleSheet.create({
       android: { elevation: 2 },
     }),
   },
-  profileAvatar3DBadgeCircle: {
+  profileSidebarAvatarCircle: {
     width: 90,
     height: 90,
     borderRadius: 45,
@@ -545,8 +524,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 16,
     ...Platform.select({
-      ios: { shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 8 },
-      android: { elevation: 4 },
+      ios: { shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 8 },
+      android: { elevation: 3 },
     }),
   },
   profileAvatarTextGraphic: {
@@ -567,12 +546,12 @@ const styles = StyleSheet.create({
   premiumTierBadgeWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFEFEA', // Delicate sienna hue padding background
+    backgroundColor: 'rgba(51, 105, 86, 0.08)', 
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(227, 83, 54, 0.2)',
+    borderColor: 'rgba(51, 105, 86, 0.15)',
     alignSelf: 'center',
     marginTop: 12,
     marginBottom: 24,
@@ -584,7 +563,7 @@ const styles = StyleSheet.create({
   },
   metadataInlinePropertiesContainerList: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(160, 82, 45, 0.1)',
+    borderTopColor: 'rgba(51, 105, 86, 0.08)',
     paddingTop: 12,
     marginBottom: 24,
   },
@@ -593,7 +572,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(160, 82, 45, 0.05)',
+    borderBottomColor: 'rgba(51, 105, 86, 0.04)',
   },
   metadataItemLabel: {
     fontSize: 14,
@@ -629,7 +608,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(160, 82, 45, 0.08)',
+    borderBottomColor: 'rgba(51, 105, 86, 0.06)',
   },
   interactionMainLabelText: {
     fontSize: 15,
@@ -644,7 +623,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(160, 82, 45, 0.08)',
+    borderBottomColor: 'rgba(51, 105, 86, 0.06)',
   },
   actionRowTileAnchorButtonText: {
     fontSize: 15,
@@ -660,7 +639,7 @@ const styles = StyleSheet.create({
   modalBlurOverlayDimmer: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(74, 35, 26, 0.4)', // Dimmed overlay matching sienna context profile tint
+    backgroundColor: 'rgba(17, 35, 29, 0.3)', 
   },
   modalInteractiveSheetContainer: {
     backgroundColor: '#FFFFFF',
@@ -717,7 +696,7 @@ const styles = StyleSheet.create({
   },
   modalCenterDimmerView: {
     flex: 1,
-    backgroundColor: 'rgba(74, 35, 26, 0.4)',
+    backgroundColor: 'rgba(17, 35, 29, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,

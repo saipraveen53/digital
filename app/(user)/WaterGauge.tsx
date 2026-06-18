@@ -15,14 +15,14 @@ interface WaterGaugeProps {
 
 export function WaterGauge({
   percentage,
-  size = 220,
+  size = 280,
   animated = true,
 }: WaterGaugeProps) {
   const webViewRef = useRef<any>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const containerWidth = size * 1.4;
-  const containerHeight = size * 1.35;
+  const containerWidth = size * 1.8;
+  const containerHeight = size * 1.9;
 
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -226,13 +226,13 @@ export function WaterGauge({
           ctx.fillText(Math.round(currentPct) + "%", tankX + tankW / 2, midPointY);
 
           // 4. RIGHT SIDE DYNAMIC SCALE MARKINGS
-          const rulerX = tankX + tankW + 24;
-          const rulerTotalLines = 11; 
-          ctx.lineWidth = 2;
-          
-          const activeLineIndex = Math.round((currentPct / 100) * (rulerTotalLines - 1));
+          //const rulerX = tankX + tankW + 24;
+          //const rulerTotalLines = 11; 
+          //ctx.lineWidth = 2;
+          //
+          //const activeLineIndex = Math.round((currentPct / 100) * (rulerTotalLines - 1));
 
-          for (let i = 0; i < rulerTotalLines; i++) {
+          {/*for (let i = 0; i < rulerTotalLines; i++) {
             const lineRatio = i / (rulerTotalLines - 1);
             const lineY = (tankY + tankH) - (lineRatio * tankH);
             const isMajor = i === 0 || i === 5 || i === 10;
@@ -258,7 +258,7 @@ export function WaterGauge({
               ctx.textBaseline = "middle";
               ctx.fillText(Math.round(currentPct) + "%", rulerX + 24, lineY);
             }
-          }
+          }*/}
 
           if (animated) {
             requestAnimationFrame(draw);
