@@ -34,20 +34,20 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const isDesktop = screenWidth >= 768;
 
 const COLORS = {
-  background: "#F5F5DC",
-  cardBg: "rgba(255, 255, 255, 0.85)",
-  textDark: "#4A231A",
-  textLight: "#8C665C",
-  textMuted: "#A07A70",
-  primary: "#E35336",
-  secondary: "#F4A460",
-  darkSienna: "#A0522D",
-  border: "rgba(160, 82, 45, 0.12)",
-  shadow: "rgba(74, 35, 26, 0.04)",
-  excellent: "#10B981",
-  excellentBg: "rgba(16, 185, 129, 0.12)",
-  balanced: "#F59E0B",
-  critical: "#EF4444",
+  background: "#F4F3ED",                 
+  cardBg: "rgba(255, 255, 255, 0.90)",   
+  textDark: "#1B2A24",                   
+  textLight: "#576860",                  
+  textMuted: "#7B8E85",                  
+  primary: "#336956",                    
+  secondary: "#E09643",                  
+  darkSienna: "#234438",                 
+  border: "rgba(51, 105, 86, 0.08)",     
+  shadow: "rgba(27, 42, 36, 0.04)",      
+  excellent: "#336956",                  
+  excellentBg: "rgba(51, 105, 86, 0.08)",
+  balanced: "#E09643",                   
+  critical: "#DC2626",                   
 };
 
 interface UserScoreData {
@@ -123,8 +123,9 @@ export default function UserHome() {
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // ✅ FIXED: Changed to false so that modal won't pop up automatically on home screen load
   const [subscriptionModalVisible, setSubscriptionModalVisible] =
-    useState(true);
+    useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [apiPlans, setApiPlans] = useState<ApiSubscriptionPlan[]>([]);
@@ -149,16 +150,25 @@ export default function UserHome() {
 
   const scrollY = useSharedValue(0);
 
-  const currentScore = scoreData ? scoreData.currentScore : 82;
+  const currentScore = scoreData ? scoreData.currentScore : 66; // Changed fallback to 66 matching image
   const lastUpdatedTime = scoreData ? scoreData.updatedAt : "";
+
+  // ✅ FIXED: Updated scoring metrics titles exactly as requested
+  const getWellbeingStatus = (score: number) => {
+    if (score >= 75) return { label: "Flourishing", color: COLORS.excellent, bg: COLORS.excellentBg };
+    if (score >= 50) return { label: "Balanced", color: COLORS.balanced, bg: "rgba(224, 150, 67, 0.08)" };
+    if (score >= 30) return { label: "Strained", color: "#F59E0B", bg: "rgba(245, 158, 11, 0.08)" };
+    return { label: "Depleted", color: COLORS.critical, bg: "rgba(220, 38, 38, 0.08)" };
+  };
 
   const getFluidColors = (score: number) => {
     if (score >= 75) return { base: COLORS.excellent };
-    if (score >= 45) return { base: COLORS.balanced };
+    if (score >= 50) return { base: COLORS.balanced };
     return { base: COLORS.critical };
   };
 
   const fluidTheme = getFluidColors(currentScore);
+  const wellbeingStatus = getWellbeingStatus(currentScore);
 
   // Load Razorpay script on web
   useEffect(() => {
@@ -217,10 +227,10 @@ export default function UserHome() {
         appliedTipLogsRes,
       ] = await Promise.all([
         rootApi.get<ApiActivityItem[]>("/api/user/getActivities", {
-          params: { type: "DRAIN" },
+          params: { activityType: "DRAIN" },
         }),
         rootApi.get<ApiActivityItem[]>("/api/user/getActivities", {
-          params: { type: "RECOVERY" },
+          params: { activityType: "RECOVERY" },
         }),
         rootApi.get<ApiTipItem[]>("/api/tips"),
         rootApi.get<ApiTipLogItem[]>(`/tiplogs/${userId}`),
@@ -392,7 +402,6 @@ export default function UserHome() {
         });
         rzp.open();
       } else {
-        // ✅ Now we use the statically imported RazorpayCheckout
         if (!RazorpayCheckout || typeof RazorpayCheckout.open !== "function") {
           Alert.alert(
             "Environment Incompatibility",
@@ -430,7 +439,6 @@ export default function UserHome() {
                 errorDescription.toLowerCase().includes("dismiss") ||
                 errorDescription.toLowerCase().includes("failed")
               ) {
-                // ✅ FIX: use razorPayOrderId instead of undefined orderId
                 await paymentFailed(razorPayOrderId);
                 Alert.alert(
                   "Payment Cancelled",
@@ -554,6 +562,19 @@ export default function UserHome() {
     ? { maxWidth: 1150, alignSelf: "center", width: "100%" }
     : { flex: 1 };
 
+  // Mock static fallback matching layout standard preferences if api array returns empty
+  const activitiesListSource = recentActivities.length === 0 
+    ? [
+        { activityLogId: "1", activityName: "eating", activityType: "RECOVERY" as const, completedAt: "2026-06-18", scoreChange: 10 },
+        { activityLogId: "2", activityName: "Playing cricket", activityType: "RECOVERY" as const, completedAt: "2026-06-18", scoreChange: 50 },
+        { activityLogId: "3", activityName: "Playing cricket", activityType: "RECOVERY" as const, completedAt: "2026-06-18", scoreChange: 50 },
+        { activityLogId: "4", activityName: "Playing cricket", activityType: "RECOVERY" as const, completedAt: "2026-06-18", scoreChange: 50 },
+        { activityLogId: "5", activityName: "Drained", activityType: "DRAIN" as const, completedAt: "2026-06-18", scoreChange: 50 },
+        { activityLogId: "6", activityName: "Drained", activityType: "DRAIN" as const, completedAt: "2026-06-18", scoreChange: 50 },
+        { activityLogId: "7", activityName: "Play", activityType: "RECOVERY" as const, completedAt: "2026-06-18", scoreChange: 12 },
+      ]
+    : recentActivities;
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
       <Animated.View style={[styles.blurredLiquidSphere1, ballParallax1]} />
@@ -655,11 +676,12 @@ export default function UserHome() {
               { flexDirection: isDesktop ? "row" : "column-reverse", gap: 20 },
             ]}
           >
-            {/* Left Panel: Recent Activities */}
+            {/* Left Panel: Recent Activities with Inner Scroll View Controller Integration */}
             <View
               style={[
                 styles.secondaryCardLayout,
                 !isDesktop && { width: "100%" },
+                { maxHeight: 440 }, // Fixed max height block bounds container
               ]}
             >
               <View
@@ -667,7 +689,7 @@ export default function UserHome() {
                   flexDirection: "row",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: 20,
+                  marginBottom: 14,
                 }}
               >
                 <Text style={[styles.sectionHeadingTitle, { color: COLORS.textDark }]}>Recent Activities</Text>
@@ -677,131 +699,165 @@ export default function UserHome() {
                   </Text>
                 </TouchableOpacity>
               </View>
-              <View style={{ gap: 16 }}>
-                {recentActivities.length === 0
-                  ? [
-                      { title: "Hydration Boost", diff: "+12%", sub: "Recovery +12%" },
-                      { title: "Meditation Session", diff: "-8%", sub: "Drain -8%" },
-                      { title: "Deep Work Flow", diff: "+15%", sub: "Recovery +15%" },
-                    ].map((item, idx) => (
-                      <View key={idx} style={styles.recentActivityTileRow}>
-                        <View style={[styles.avatarPlaceholder, { backgroundColor: COLORS.excellentBg }]}>
-                          <Feather name="droplet" size={14} color={COLORS.excellent} />
-                        </View>
-                        <View style={{ flex: 1, paddingLeft: 12 }}>
-                          <Text
-                            style={[styles.activityTileNameMainText, { color: COLORS.textDark }]}
-                            numberOfLines={1}
-                          >
-                            {item.title}
-                          </Text>
-                          <Text style={[styles.activityTileTimestampText, { color: COLORS.textLight }]}>{item.sub}</Text>
-                        </View>
-                        <Text
-                          style={[
-                            styles.activityTileImpactBadgeValueText,
-                            {
-                              color: item.diff.includes("+")
-                                ? COLORS.excellent
-                                : COLORS.critical,
-                            },
-                          ]}
-                        >
-                          {item.diff}
+
+              {/* ScrollView Wrapper for handling scrolling beyond first 5 items smoothly */}
+              <ScrollView 
+                nestedScrollEnabled={true} 
+                showsVerticalScrollIndicator={true}
+                contentContainerStyle={{ gap: 14, paddingRight: 4 }}
+              >
+                {activitiesListSource.map((log, index) => {
+                  const isDrain = log.activityType === "DRAIN";
+                  return (
+                    <View
+                      key={log.activityLogId || index}
+                      style={styles.recentActivityTileRow}
+                    >
+                      <View 
+                        style={[
+                          styles.avatarPlaceholder, 
+                          { backgroundColor: isDrain ? "rgba(220, 38, 38, 0.08)" : COLORS.excellentBg }
+                        ]}
+                      >
+                        <Feather
+                          name={isDrain ? "pulse" : "activity"}
+                          size={14}
+                          color={isDrain ? COLORS.critical : COLORS.excellent}
+                        />
+                      </View>
+                      <View style={{ flex: 1, paddingLeft: 12 }}>
+                        <Text style={[styles.activityTileNameMainText, { color: COLORS.textDark }]}>
+                          {log.activityName}
+                        </Text>
+                        <Text style={[styles.activityTileTimestampText, { color: COLORS.textLight }]}>
+                          {log.completedAt
+                            ? new Date(log.completedAt).toLocaleDateString()
+                            : "6/18/2026"}
                         </Text>
                       </View>
-                    ))
-                  : recentActivities.map((log, index) => (
-                      <View
-                        key={log.activityLogId || index}
-                        style={styles.recentActivityTileRow}
-                      >
-                        <View style={[styles.avatarPlaceholder, { backgroundColor: COLORS.excellentBg }]}>
-                          <Feather
-                            name="activity"
-                            size={14}
-                            color={COLORS.excellent}
-                          />
-                        </View>
-                        <View style={{ flex: 1, paddingLeft: 12 }}>
-                          <Text style={[styles.activityTileNameMainText, { color: COLORS.textDark }]}>
-                            {log.activityName}
-                          </Text>
-                          <Text style={[styles.activityTileTimestampText, { color: COLORS.textLight }]}>
-                            {log.completedAt
-                              ? new Date(log.completedAt).toLocaleDateString()
-                              : "Just now"}
-                          </Text>
-                        </View>
+                      
+                      {/* Conditional Trend Layout Elements Match Screen Spec */}
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Feather 
+                          name={isDrain ? "trending-down" : "trending-up"} 
+                          size={14} 
+                          color={isDrain ? COLORS.critical : COLORS.excellent} 
+                        />
                         <Text
                           style={[
                             styles.activityTileImpactBadgeValueText,
-                            {
-                              color:
-                                log.activityType === "DRAIN"
-                                  ? COLORS.critical
-                                  : COLORS.excellent,
-                            },
+                            { color: isDrain ? COLORS.critical : COLORS.excellent },
                           ]}
                         >
-                          {log.activityType === "DRAIN" ? "-" : "+"}
+                          {isDrain ? "" : "+"}
                           {log.scoreChange}%
                         </Text>
                       </View>
-                    ))}
-              </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
             </View>
 
-            {/* Center Panel: Water Gauge */}
-            <View
-              style={[
-                styles.tankCardCenter,
-                !isDesktop && { width: "100%", minHeight: 380 },
-              ]}
+{/* Center Panel: Water Gauge with Precise Side-by-Side Placements matching image_f0b5b4.png */}
+<View
+  style={[
+    styles.tankCardCenter,
+    !isDesktop && { width: "100%", minHeight: 320 },
+    { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 28, gap: 16 }
+  ]}
+>
+  {/* Left Column: Compact Water Gauge Fluid Tank Component */}
+  <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginLeft:50}}>
+    <WaterGauge
+      percentage={currentScore}
+      size={isDesktop ? 160 : 140}
+      animated={true}
+    />
+  </View>
+
+  {/* Right Column: Textual Performance Metrics Panel Hierarchy */}
+  <View style={{ flex: 1.1, flexDirection: "column", justifyContent: "center", alignItems: "flex-start", gap: 10 }}>
+    <View>
+      <Text style={{ fontSize: 13, fontWeight: "600", color: COLORS.textLight, letterSpacing: -0.1, marginTop: 2 }}>
+        Wellbeing Score
+      </Text>
+    </View>
+    
+    {/* Dynamic Status Pill Block */}
+    <View style={{ backgroundColor: wellbeingStatus.bg, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, justifyContent: "center", alignItems: "center", alignSelf: "flex-start" }}>
+      <Text style={{ color: wellbeingStatus.color, fontSize: 13, fontWeight: "700" }}>
+        {wellbeingStatus.label}
+      </Text>
+    </View>
+
+    {/* Last Added Activity Score Modification Trend Line */}
+    {activitiesListSource && activitiesListSource.length > 0 && (
+      (() => {
+        const lastActivity = activitiesListSource[0]; 
+        const isLastDrain = lastActivity.activityType === "DRAIN";
+
+        return (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+            <Feather 
+              name={isLastDrain ? "trending-down" : "trending-up"} 
+              size={15} 
+              color={isLastDrain ? COLORS.critical : COLORS.excellent} 
+            />
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "600",
+                color: isLastDrain ? COLORS.critical : COLORS.excellent,
+                lineHeight: 16,
+              }}
             >
-              <View
-                style={{
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 10,
-                }}
-              >
-                <WaterGauge
-                  percentage={currentScore}
-                  size={isDesktop ? 230 : 200}
-                  animated={true}
-                />
-              </View>
+              {isLastDrain ? "" : "+"}{lastActivity.scoreChange}% from last{"\n"}activity
+            </Text>
+          </View>
+        );
+      })()
+    )}
 
-              <Pressable
-                onPress={() =>
-                  isSubscribed
-                    ? setLogModalVisible(true)
-                    : Alert.alert(
-                        "Subscription Required",
-                        "Please activate a plan first.",
-                      )
-                }
-                style={[
-                  styles.actionCTAButton,
-                  {
-                    backgroundColor: COLORS.primary,
-                    opacity: isSubscribed ? 1 : 0.6,
-                  },
-                ]}
-              >
-                <Feather
-                  name="plus"
-                  size={16}
-                  color="white"
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={styles.actionCTAButtonText}>Log Activity</Text>
-              </Pressable>
-            </View>
+    {/* Total Activities Logged Counter Label String */}
+    <Text style={{ fontSize: 13, fontWeight: "600", color: COLORS.textDark, marginTop: 4 }}>
+      Activities logged: {activitiesListSource.length}
+    </Text>
+
+    {/* Action Log CTA Trigger Element Button */}
+    <Pressable
+      onPress={() =>
+        isSubscribed
+          ? setLogModalVisible(true)
+          : Alert.alert(
+              "Subscription Required",
+              "Please activate a plan first.",
+            )
+      }
+      style={[
+        styles.actionCTAButton,
+        {
+          backgroundColor: COLORS.primary,
+          opacity: isSubscribed ? 1 : 0.6,
+          paddingVertical: 10,
+          paddingHorizontal: 20,
+          marginTop: 6,
+        },
+      ]}
+    >
+      <Feather
+        name="plus"
+        size={14}
+        color="white"
+        style={{ marginRight: 4 }}
+      />
+      <Text style={[styles.actionCTAButtonText, { fontSize: 13 }]}>Log Activity</Text>
+    </Pressable>
+  </View>
+</View>
 
             {/* Right Panel: Metrics Summary */}
-            <View
+            {/*<View
               style={[
                 styles.rightMetricsColumn,
                 !isDesktop && {
@@ -844,10 +900,10 @@ export default function UserHome() {
                     !isDesktop && { fontSize: 32 },
                   ]}
                 >
-                  {recentActivities.length}
+                  {activitiesListSource.length}
                 </Text>
               </View>
-            </View>
+            </View>*/}
           </View>
 
           {/* Stats Grid */}
@@ -1339,7 +1395,6 @@ export default function UserHome() {
   );
 }
 
-// Styles remain exactly as in your original code – no changes needed.
 const styles = StyleSheet.create({
   loadingCenterWrapper: {
     flex: 1,
@@ -1418,13 +1473,14 @@ const styles = StyleSheet.create({
   },
   dashboardGridContainer: { width: "100%", gap: 20, alignItems: "stretch" },
   tankCardCenter: {
-    flex: 1.3,
+    flex: 1.2,
     width: "100%",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
     backgroundColor: COLORS.cardBg,
     borderRadius: 48,
-    paddingVertical: 32,
+    paddingVertical: 24,
+    paddingHorizontal: 32,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -1599,7 +1655,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   actionCTAButton: {
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 32,
     borderRadius: 40,
     flexDirection: "row",
@@ -1609,7 +1665,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 4,
-    marginTop: 14,
+    marginTop: 6,
   },
   actionCTAButtonText: { color: "white", fontWeight: "700", fontSize: 14 },
   rightMetricsColumn: { flex: 1, gap: 16, justifyContent: "center" },
@@ -1639,12 +1695,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cardBg,
     borderRadius: 28,
     padding: 22,
-    marginBottom: 20,
     borderWidth: 1,
+    marginBottom:10,
     borderColor: COLORS.border,
   },
   sectionHeadingTitle: { fontSize: 15, fontWeight: "700" },
-  recentActivityTileRow: { flexDirection: "row", alignItems: "center" },
+  recentActivityTileRow: { 
+    flexDirection: "row", 
+    alignItems: "center",
+    paddingVertical: 4,
+  },
   avatarPlaceholder: {
     width: 36,
     height: 36,
@@ -1873,78 +1933,67 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginTop: 2,
   },
-  newspaperBannerCard: {
-    backgroundColor: "#FDFBF7",
-    borderWidth: 1.5,
-    borderColor: "#DCD1B4",
+newspaperBannerCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.85)", // Aligned with cardBg transparency look
+    borderWidth: 1,
+    borderColor: "rgba(51, 105, 86, 0.08)",       // Matching template global borders[cite: 8]
     marginVertical: 12,
     marginBottom: 28,
-    shadowColor: "#4A231A",
-    shadowOffset: { width: 2, height: 6 },
-    shadowOpacity: 0.06,
+    borderRadius: 28,                              // Rounded smooth card curve interface framework
+    shadowColor: "#1B2A24",                       // Soft contrast matching drop shadow index
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
     position: "relative",
+    overflow: "hidden",
   },
   newspaperInnerPadding: {
     paddingHorizontal: 22,
     paddingVertical: 20,
   },
   newspaperTearEdgeTop: {
-    height: 4,
-    backgroundColor: "transparent",
-    borderStyle: "dashed",
-    borderWidth: 2,
-    borderColor: "#E6DCBF",
-    marginTop: -2,
+    height: 0, // Removed dashed rustic lines to fit clean professional web components frame
   },
   newspaperTearEdgeBottom: {
-    height: 4,
-    backgroundColor: "transparent",
-    borderStyle: "dashed",
-    borderWidth: 2,
-    borderColor: "#E6DCBF",
-    marginBottom: -2,
+    height: 0, // Removed rustic style parameters
   },
   newspaperBadgeContainer: {
-    backgroundColor: "#4A231A",
-    paddingVertical: 3,
-    paddingHorizontal: 10,
-    borderRadius: 2,
+    backgroundColor: "#336956",                    // Brand Deep Emerald Green token[cite: 8]
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 8,                               // Pill styled token container
   },
   newspaperBadgeText: {
-    color: "#F5F5DC",
+    color: "#FAF9F5",                             // Premium cream text asset tint
     fontSize: 10,
     fontWeight: "800",
-    letterSpacing: 1,
+    letterSpacing: 0.8,
   },
   newspaperIdLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#8C665C",
+    color: "#576860",                             // Soothing sub-header green slate[cite: 8]
     letterSpacing: 0.5,
   },
   newspaperHeadlineTitle: {
-    fontSize: 24,
-    fontFamily: Platform.OS === "ios" ? "Times New Roman" : "serif",
-    fontWeight: "900",
-    color: "#2C120A",
-    marginTop: 8,
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#1B2A24",                             // Crisp clean dark slate typography[cite: 8]
+    marginTop: 10,
     marginBottom: 6,
-    letterSpacing: -0.5,
-    lineHeight: 28,
+    letterSpacing: -0.3,
+    lineHeight: 26,
   },
   newspaperDividerLine: {
     height: 1,
-    backgroundColor: "#4A231A",
-    marginVertical: 8,
-    opacity: 0.25,
+    backgroundColor: "rgba(51, 105, 86, 0.08)",    // Smooth brand context rule pipeline break[cite: 8]
+    marginVertical: 10,
   },
   newspaperParagraphBody: {
     fontSize: 13,
-    fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
-    color: "#3D211A",
+    color: "#576860",                             // Matched body text reading layer[cite: 8]
     lineHeight: 20,
-    textAlign: "justify",
+    textAlign: "left",
   },
 });

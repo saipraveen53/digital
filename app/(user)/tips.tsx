@@ -33,21 +33,21 @@ import { rootApi } from "../utils/axiosInstance";
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const isDesktop = screenWidth >= 768;
 
-// Custom Burnt Sienna specifications configuration template palette
+// ✅ FIXED: Color configurations fully synchronized with premium brand image aesthetics
 const COLORS = {
-  background: "#F5F5DC",      // Soft cream beige background tone[cite: 14]
-  cardBg: "rgba(255, 255, 255, 0.85)", // Glassmorphic translucent container base[cite: 14]
-  textDark: "#4A231A",       // Deep rich warm slate clay[cite: 14]
-  textLight: "#8C665C",      // Elegant sienna muted tone[cite: 14]
-  primary: "#E35336",        // Vibrant dominant terracotta sienna[cite: 14]
-  secondary: "#F4A460",      // Smooth sand sandy orange[cite: 14]
-  darkSienna: "#A0522D",     // Luxury dark solid earth border[cite: 14]
-  border: "rgba(160, 82, 45, 0.12)", // Elegant border link tint[cite: 14]
+  background: "#FAF9F5",      // Clean minimalist crisp warm cream background tone
+  cardBg: "rgba(255, 255, 255, 0.90)", 
+  textDark: "#11231D",       // Strong dark slate accent green text header tone
+  textLight: "#576860",      // Smooth soothing mid-tone slate green for subtitles
+  primary: "#336956",        // Brand Deep Emerald Green focus color from panels
+  secondary: "#E09643",      // Warm balanced progress amber variant from gauge fill
+  darkSienna: "#1B4235",     // Luxury dense forest green boundary tint
+  border: "rgba(51, 105, 86, 0.08)", 
   
   // Dynamic Gauge Color Sync Track Tones
-  excellent: "#0E9F9D",      
-  balanced: "#F59E0B",       // Active amber indicator[cite: 14]
-  critical: "#EF4444",       // Warning recovery required alert[cite: 14]
+  excellent: "#336956",      // Synchronized with main brand emerald green
+  balanced: "#E09643",       // Balanced progress amber indicator from gauge
+  critical: "#DC2626",       // Vibrant red for critical warnings
 };
 
 // Interface reflecting the new /api/tips schema structural design
@@ -106,7 +106,6 @@ export default function TipsScreen() {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only trigger dragging logic if pull direction vectors point downward
         return gestureState.dy > 5;
       },
       onPanResponderMove: (_, gestureState) => {
@@ -116,7 +115,6 @@ export default function TipsScreen() {
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy > 120 || gestureState.vy > 0.5) {
-          // Complete dismiss sequence transition down to floor metrics
           RNAnimated.timing(panY, {
             toValue: screenHeight,
             duration: 250,
@@ -126,7 +124,6 @@ export default function TipsScreen() {
             panY.setValue(0);
           });
         } else {
-          // Snap back structural framework back up to base anchor location
           RNAnimated.spring(panY, {
             toValue: 0,
             useNativeDriver: true,
@@ -188,15 +185,12 @@ export default function TipsScreen() {
   const fetchInitialData = async () => {
     setGlobalLoading(true);
     try {
-      // 1. Fetch current active tips recommendations via /api/tips
       const tipsRes = await rootApi.get<TipItem[]>("/api/tips");
       setTipsList(tipsRes.data || []);
 
-      // 2. Fetch User Current Score Profile metrics via /user/{userId}
       const scoreRes = await rootApi.get<UserScoreData>(`/user/${userId}`);
       setScoreData(scoreRes.data || null);
 
-      // 3. Fetch history tiplogs metrics to feed the totalcount statcards silently on init
       const logsRes = await rootApi.get<TipLogItem[]>(`/tiplogs/${userId}`);
       setTipLogs(logsRes.data || []);
     } catch (err) {
@@ -209,10 +203,8 @@ export default function TipsScreen() {
   const fetchHistoryLogs = async () => {
     setLogsLoading(true);
     try {
-      // Fetch user specific activation items via /tiplogs/{userId}
       const logsRes = await rootApi.get<TipLogItem[]>(`/tiplogs/${userId}`);
       setTipLogs(logsRes.data || []);
-      // Reset position anchor tokens before layout mounts up
       panY.setValue(0);
       setShowLogsOverlay(true);
     } catch (err) {
@@ -226,13 +218,11 @@ export default function TipsScreen() {
   const handleApplyTip = async (tipId: string, tipName: string) => {
     setActionLoadingId(tipId);
     try {
-      // POST Apply verification payload details to /applytip
       await rootApi.post("/applytip", { userId, tipId });
 
       setSuccessMessage(`"${tipName}" applied into system logs successfully!`);
       setSuccessModalVisible(true);
 
-      // Re-fetch score context and history matrix updates immediately
       const scoreRes = await rootApi.get<UserScoreData>(`/user/${userId}`);
       setScoreData(scoreRes.data || null);
 
@@ -245,7 +235,6 @@ export default function TipsScreen() {
     }
   };
 
-  // --- 3D Floating Mesh Orbs Anti-Direction Parallax Styling Engines ---
   const ballStyle1 = useAnimatedStyle(() => ({
     transform: [
       { translateY: interpolate(scrollY.value, [0, screenHeight], [0, -240]) },
@@ -265,7 +254,6 @@ export default function TipsScreen() {
   }));
 
   const fluidHeightStyle = useAnimatedStyle(() => {
-    // Normalizing percentage to make sure liquid doesn't overflow completely out of borders
     const boundedScore = Math.min(Math.max(scorePercentage, 0), 100);
     return {
       height: withTiming(`${boundedScore}%`, {
@@ -317,8 +305,7 @@ export default function TipsScreen() {
         <View style={styles.responsiveBentoConstraintWrapper}>
           <View style={styles.headingDescriptionRowFlex}>
             <Text style={[styles.metaSubtleInformationParagraphText, { color: COLORS.textLight }]}>
-              Personalized by role, age, wellbeing score, and recent activity
-              patterns.
+              Personalized by role, age, wellbeing score, and recent activity patterns.
             </Text>
 
             {/* Unified History Action Module */}
@@ -347,59 +334,39 @@ export default function TipsScreen() {
           </View>
           
           {/* --- ULTRA COLORFUL STAT CARDS SECTION --- */}
+         {/* --- CLEAN STATIC DOUBLE FRAME STAT CARDS SECTION (image_ee188c_2.png) --- */}
           <View style={styles.statCardsContainer}>
             {/* Card 1: Active Tips */}
-            <View style={[styles.statCardItem, styles.statCardTealVariant]}>
-              <View
-                style={[
-                  styles.statIconBadge,
-                  { backgroundColor: "rgba(227, 83, 54, 0.12)" },
-                ]}
-              >
-                <Feather name="list" size={18} color={COLORS.primary} />
+            <View style={styles.outerFrameContainer}>
+              <View style={styles.innerFrameContainer}>
+                <View style={[styles.cardIconWrapperCircle, { backgroundColor: 'rgba(51, 105, 86, 0.06)' }]}>
+                  <Feather name="list" size={16} color="#336956" />
+                </View>
+                <Text style={styles.cardValueTypography}>{tipsList.length}</Text>
+                <Text style={styles.cardLabelTypography}>Active Tips</Text>
               </View>
-              <Text style={[styles.statCardValue, { color: COLORS.textDark }]}>
-                {tipsList.length}
-              </Text>
-              <Text style={[styles.statCardLabel, { color: COLORS.textLight }]}>
-                Active Tips
-              </Text>
             </View>
 
             {/* Card 2: Total Actions */}
-            <View style={[styles.statCardItem, styles.statCardIndigoVariant]}>
-              <View
-                style={[
-                  styles.statIconBadge,
-                  { backgroundColor: "rgba(244, 164, 96, 0.12)" },
-                ]}
-              >
-                <Feather name="check-square" size={18} color={COLORS.secondary} />
+            <View style={styles.outerFrameContainer}>
+              <View style={styles.innerFrameContainer}>
+                <View style={[styles.cardIconWrapperCircle, { backgroundColor: 'rgba(224, 150, 67, 0.06)' }]}>
+                  <Feather name="check-square" size={16} color="#E09643" />
+                </View>
+                <Text style={styles.cardValueTypography}>{tipLogs.length}</Text>
+                <Text style={styles.cardLabelTypography}>Total Actions</Text>
               </View>
-              <Text style={[styles.statCardValue, { color: COLORS.textDark }]}>
-                {tipLogs.length}
-              </Text>
-              <Text style={[styles.statCardLabel, { color: COLORS.textLight }]}>
-                Total Actions
-              </Text>
             </View>
 
             {/* Card 3: Current Score */}
-            <View style={[styles.statCardItem, styles.statCardPurpleVariant]}>
-              <View
-                style={[
-                  styles.statIconBadge,
-                  { backgroundColor: "rgba(160, 82, 45, 0.12)" },
-                ]}
-              >
-                <Feather name="activity" size={18} color={COLORS.darkSienna} />
+            <View style={styles.outerFrameContainer}>
+              <View style={styles.innerFrameContainer}>
+                <View style={[styles.cardIconWrapperCircle, { backgroundColor: 'rgba(27, 66, 53, 0.06)' }]}>
+                  <Feather name="activity" size={16} color="#1B4235" />
+                </View>
+                <Text style={styles.cardValueTypography}>{scorePercentage}%</Text>
+                <Text style={styles.cardLabelTypography}>Current Score</Text>
               </View>
-              <Text style={[styles.statCardValue, { color: COLORS.textDark }]}>
-                {scorePercentage}%
-              </Text>
-              <Text style={[styles.statCardLabel, { color: COLORS.textLight }]}>
-                Current Score
-              </Text>
             </View>
           </View>
 
@@ -409,7 +376,7 @@ export default function TipsScreen() {
               Current wellbeing
             </Text>
 
-            <View style={[styles.fluidCircleMeterRingFrameOuter, { borderColor: "rgba(160, 82, 45, 0.15)" }]}>
+            <View style={[styles.fluidCircleMeterRingFrameOuter, { borderColor: "rgba(51, 105, 86, 0.12)" }]}>
               <View style={styles.fluidCircleContainerOverflowClipHiddenLayer}>
                 <Animated.View
                   style={[
@@ -436,9 +403,7 @@ export default function TipsScreen() {
               </View>
 
               <View style={styles.gaugeForegroundAbsoluteCenterLabelsStack}>
-                <Text
-                  style={[styles.gaugePercentagePrimaryValueDisplayValueText, { color: COLORS.textDark }]}
-                >
+                <Text style={[styles.gaugePercentagePrimaryValueDisplayValueText, { color: COLORS.textDark }]}>
                   {scorePercentage}%
                 </Text>
               </View>
@@ -461,10 +426,7 @@ export default function TipsScreen() {
               </View>
             ) : (
               tipsList.map((item, idx) => (
-                <View
-                  key={item.tipId || idx}
-                  style={styles.premiumTipDescriptionTileCardItem}
-                >
+                <View key={item.tipId || idx} style={styles.premiumTipDescriptionTileCardItem}>
                   <Text style={[styles.tipCardBadgeCounterText, { color: COLORS.primary }]}>
                     Tip {idx + 1}
                   </Text>
@@ -472,12 +434,7 @@ export default function TipsScreen() {
                     {item.tipName}
                   </Text>
 
-                  <Text
-                    style={[
-                      styles.tipCardExpectedGainValueText,
-                      { color: activeGaugeColor },
-                    ]}
-                  >
+                  <Text style={[styles.tipCardExpectedGainValueText, { color: activeGaugeColor }]}>
                     Suggested gain: +{item.tipScore}%
                   </Text>
 
@@ -496,15 +453,8 @@ export default function TipsScreen() {
                       <ActivityIndicator size="small" color="white" />
                     ) : (
                       <>
-                        <Feather
-                          name="check"
-                          size={16}
-                          color="white"
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text style={styles.applyActionButtonCTAText}>
-                          I do this
-                        </Text>
+                        <Feather name="check" size={16} color="white" style={{ marginRight: 6 }} />
+                        <Text style={styles.applyActionButtonCTAText}>I do this</Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -523,22 +473,10 @@ export default function TipsScreen() {
         onRequestClose={() => setShowLogsOverlay(false)}
       >
         <View style={styles.modalSheetBlurOverlayDimmer}>
-          <RNAnimated.View
-            style={[
-              styles.modalInteractiveSheetContainer,
-              { transform: [{ translateY: panY }] },
-            ]}
-          >
-            {/* Aesthetic Top Notch for Drawer Feel - Acting as Pan Handler Target Zone */}
-            <View
-              style={styles.modalTopIndicatorHandle}
-              {...panResponder.panHandlers}
-            />
+          <RNAnimated.View style={[styles.modalInteractiveSheetContainer, { transform: [{ translateY: panY }] }]}>
+            <View style={styles.modalTopIndicatorHandle} {...panResponder.panHandlers} />
 
-            <View
-              style={styles.modalHeaderRowLayout}
-              {...panResponder.panHandlers}
-            >
+            <View style={styles.modalHeaderRowLayout} {...panResponder.panHandlers}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <View style={[styles.modalTitleIconContainer, { backgroundColor: COLORS.primary }]}>
                   <Feather name="activity" size={18} color="white" />
@@ -547,67 +485,33 @@ export default function TipsScreen() {
                   Applied History Logs
                 </Text>
               </View>
-              <TouchableOpacity
-                style={styles.modalCloseCircleButton}
-                onPress={() => setShowLogsOverlay(false)}
-              >
+              <TouchableOpacity style={styles.modalCloseCircleButton} onPress={() => setShowLogsOverlay(false)}>
                 <Feather name="x" size={16} color={COLORS.textLight} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              contentContainerStyle={{ paddingBottom: 30 }}
-              showsVerticalScrollIndicator={false}
-            >
+            <ScrollView contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
               {tipLogs.length === 0 ? (
                 <View style={styles.emptyLogsContainer}>
-                  <Feather
-                    name="folder-minus"
-                    size={40}
-                    color={COLORS.textLight}
-                    style={{ marginBottom: 12, opacity: 0.6 }}
-                  />
+                  <Feather name="folder-minus" size={40} color={COLORS.textLight} style={{ marginBottom: 12, opacity: 0.6 }} />
                   <Text style={[styles.emptyLogsFallbackText, { color: COLORS.textLight }]}>
                     No items found in your history log matrix.
                   </Text>
                 </View>
               ) : (
                 tipLogs.map((log, index) => (
-                  <View
-                    key={log.tipLogId || index}
-                    style={styles.logHistoryHorizontalItemTile}
-                  >
-                    {/* Left Colored Accent Bar to make it colorful */}
-                    <View style={[styles.logTileLeftAccentIndicator, { backgroundColor: COLORS.primary }]} />
-
+                  <View key={log.tipLogId || index} style={styles.logHistoryHorizontalItemTile}>
+                    <View style={[styles.logHistoryBarIndicator, { backgroundColor: COLORS.primary }]} />
                     <View style={styles.logTileIconBadge}>
-                      <Feather
-                        name="check"
-                        size={14}
-                        color={COLORS.excellent}
-                      />
+                      <Feather name="check" size={14} color={COLORS.excellent} />
                     </View>
 
                     <View style={{ flex: 1, paddingLeft: 4 }}>
-                      <Text
-                        style={[styles.logHistoryItemTitleMainText, { color: COLORS.textDark }]}
-                        numberOfLines={1}
-                      >
+                      <Text style={[styles.logHistoryItemTitleMainText, { color: COLORS.textDark }]} numberOfLines={1}>
                         {log.tipName}
                       </Text>
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          marginTop: 4,
-                        }}
-                      >
-                        <Feather
-                          name="calendar"
-                          size={10}
-                          color={COLORS.textLight}
-                          style={{ marginRight: 4 }}
-                        />
+                      <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
+                        <Feather name="calendar" size={10} color={COLORS.textLight} style={{ marginRight: 4 }} />
                         <Text style={[styles.logHistoryItemTimestampSubtext, { color: COLORS.textLight }]}>
                           {log.appliedAt
                             ? new Date(log.appliedAt).toLocaleDateString([], {
@@ -677,14 +581,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 14,
   },
-  // Anti-Directional Smooth 3D Ambient Mesh Elements
   blurredLiquidSphere1: {
     position: 'absolute',
     width: 250,
     height: 250,
     borderRadius: 125,
     backgroundColor: COLORS.secondary,
-    opacity: 0.25,
+    opacity: 0.15,
     top: '12%',
     left: -60,
     ...Platform.select({
@@ -698,7 +601,7 @@ const styles = StyleSheet.create({
     height: 300,
     borderRadius: 150,
     backgroundColor: COLORS.primary,
-    opacity: 0.14,
+    opacity: 0.12,
     bottom: '25%',
     right: -90,
     ...Platform.select({
@@ -712,7 +615,7 @@ const styles = StyleSheet.create({
     height: 210,
     borderRadius: 105,
     backgroundColor: COLORS.darkSienna,
-    opacity: 0.18,
+    opacity: 0.14,
     top: '48%',
     left: '30%',
     ...Platform.select({
@@ -751,7 +654,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(160, 82, 45, 0.15)",
+    borderColor: "rgba(51, 105, 86, 0.12)",
     ...Platform.select({
       ios: {
         shadowColor: COLORS.darkSienna,
@@ -766,11 +669,51 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  statCardsContainer: {
+statCardsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 26,
     gap: 12,
+  },
+  outerFrameContainer: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",        // Flat neutral muted gray ring frame color from image
+    borderRadius: 24,                 // Smooth layout outer tracking bounds
+    padding: 10,                      // Controls identical border structure depth padding
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.03)",
+  },
+  innerFrameContainer: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",        // Solid crisp non-shaded pure white background asset box
+    borderRadius: 4,                  // Flat visual low-curve vertical inner layout parameters
+    paddingVertical: 18,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardIconWrapperCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  cardValueTypography: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#000000",                  // Crisp pure solid black numeric labels indicators
+    letterSpacing: -0.5,
+  },
+  cardLabelTypography: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#2C3E35",                  // Clean neutral sub-text tracking color
+    marginTop: 4,
+    textAlign: "center",
   },
   statCardItem: {
     flex: 1,
@@ -792,16 +735,16 @@ const styles = StyleSheet.create({
     }),
   },
   statCardTealVariant: {
-    backgroundColor: "rgba(227, 83, 54, 0.04)",
-    borderColor: "rgba(227, 83, 54, 0.15)",
+    backgroundColor: "rgba(51, 105, 86, 0.04)",
+    borderColor: "rgba(51, 105, 86, 0.12)",
   },
   statCardIndigoVariant: {
-    backgroundColor: "rgba(244, 164, 96, 0.04)",
-    borderColor: "rgba(244, 164, 96, 0.15)",
+    backgroundColor: "rgba(224, 150, 67, 0.04)",
+    borderColor: "rgba(224, 150, 67, 0.12)",
   },
   statCardPurpleVariant: {
-    backgroundColor: "rgba(160, 82, 45, 0.04)",
-    borderColor: "rgba(160, 82, 45, 0.15)",
+    backgroundColor: "rgba(27, 66, 53, 0.04)",
+    borderColor: "rgba(27, 66, 53, 0.12)",
   },
   statIconBadge: {
     width: 38,
@@ -946,6 +889,7 @@ const styles = StyleSheet.create({
   tipCardMainTitleText: {
     fontSize: 22,
     fontWeight: "800",
+    color: COLORS.textDark,
   },
   tipCardExpectedGainValueText: {
     fontSize: 14,
@@ -974,7 +918,7 @@ const styles = StyleSheet.create({
   modalSheetBlurOverlayDimmer: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(74, 35, 26, 0.4)", // Dimmed overlay matching sienna context profile tint
+    backgroundColor: "rgba(17, 35, 29, 0.3)", 
   },
   modalInteractiveSheetContainer: {
     backgroundColor: "#FFFFFF",
@@ -1040,17 +984,17 @@ const styles = StyleSheet.create({
   logHistoryHorizontalItemTile: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FAF9F5", // Warm light tinted tile container background
+    backgroundColor: "#FAF9F5", 
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "rgba(160, 82, 45, 0.08)",
+    borderColor: "rgba(51, 105, 86, 0.06)",
     position: "relative",
     overflow: "hidden",
   },
-  logTileLeftAccentIndicator: {
+  logHistoryBarIndicator: {
     position: "absolute",
     left: 0,
     top: 0,
@@ -1061,7 +1005,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(14, 159, 157, 0.12)",
+    backgroundColor: "rgba(51, 105, 86, 0.08)",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -1075,7 +1019,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   scoreImpactBadgeContainer: {
-    backgroundColor: "rgba(14, 159, 157, 0.15)",
+    backgroundColor: "rgba(51, 105, 86, 0.08)",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
@@ -1083,11 +1027,11 @@ const styles = StyleSheet.create({
   logHistoryItemScoreImpactBadgeText: {
     fontSize: 13,
     fontWeight: "800",
-    color: "#0E9F9D",
+    color: "#336956",
   },
   modalCenterDimmerView: {
     flex: 1,
-    backgroundColor: "rgba(74, 35, 26, 0.4)",
+    backgroundColor: "rgba(17, 35, 29, 0.3)",
     justifyContent: "center",
     alignItems: "center",
     padding: 24,

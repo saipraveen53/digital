@@ -23,31 +23,32 @@ import {
 } from "../context/SubscriptionContext";
 
 // Explicit Burnt Sienna multi-color design setup matrix matching image preferences
+// Explicit Premium Emerald Green multi-color design setup matrix matching image preferences
 const COLORS = {
-  primary: "#E35336",         // Vibrant Burnt Sienna brand focus
-  secondary: "#F4A460",       // Sandy orange variant configuration
-  darkSienna: "#A0522D",      // Deep clay block separator tint
-  background: "#F5F5DC",      // Soft cream beige middle background tone
-  border: "rgba(160, 82, 45, 0.12)",
-  cardBg: "rgba(255, 255, 255, 0.85)",
+  primary: "#336956",         // Brand Deep Emerald Green color from website panels
+  secondary: "#E09643",       // Warm balanced progress amber variant from gauge fill
+  darkSienna: "#1B4235",      // Dark forest green block gradient step
+  background: "#FAF9F5",      // Clean minimalist crisp warm cream background tone
+  border: "rgba(51, 105, 86, 0.08)",
+  cardBg: "rgba(255, 255, 255, 0.90)",
 
   // Custom explicit Green colors for Active navigation states & numeric indicators
-  excellentGreen: "#10B981",
-  excellentBg: "rgba(16, 185, 129, 0.12)",
+  excellentGreen: "#336956",
+  excellentBg: "rgba(51, 105, 86, 0.08)",
 
-  textDark: "#4A231A",        // Strong dark clay sienna text header accent
-  textLight: "#8C665C",       // Warm terracotta subtle subtitle label
+  textDark: "#11231D",        // Strong dark slate accent green text header tone
+  textLight: "#576860",       // Smooth soothing mid-tone slate green for subtitles
   
-  // Translucent dynamic glass backgrounds inheriting master sienna tones
+  // Translucent dynamic glass backgrounds inheriting master premium emerald tones
   sidebarGlassBg: [
-    "rgba(255, 255, 255, 0.92)",
-    "rgba(245, 245, 220, 0.85)",
-    "rgba(244, 164, 96, 0.15)",
+    "rgba(255, 255, 255, 0.95)",
+    "rgba(250, 249, 245, 0.90)",
+    "rgba(51, 105, 86, 0.04)",
   ],
-  mobileTabGlassBg: ["rgba(255, 255, 255, 0.96)", "rgba(245, 245, 220, 0.92)"],
-  logoutBorder: "rgba(227, 83, 54, 0.2)",
-  logoutIconBg: "rgba(227, 83, 54, 0.1)",
-  logoutText: "#E35336",
+  mobileTabGlassBg: ["rgba(255, 255, 255, 0.98)", "rgba(250, 249, 245, 0.94)"],
+  logoutBorder: "rgba(220, 38, 38, 0.15)",
+  logoutIconBg: "rgba(220, 38, 38, 0.06)",
+  logoutText: "#DC2626",      // Standard alert red for clean secure destructive logout trigger
 };
 
 const NAVIGATION_ITEMS = [
@@ -55,41 +56,41 @@ const NAVIGATION_ITEMS = [
     name: "Home",
     path: "/home",
     icon: "home",
-    bg: "rgba(244, 164, 96, 0.15)",
-    iconColor: COLORS.textDark,
-    gradient: ["#E35336", "#F4A460"],
+    bg: "rgba(51, 105, 86, 0.08)",
+    iconColor: COLORS.primary,
+    gradient: ["#336956", "#1B4235"],
   },
   {
     name: "Logs",
     path: "/logs",
     icon: "clipboard",
-    bg: "rgba(16, 185, 129, 0.1)",
+    bg: "rgba(51, 105, 86, 0.08)",
     iconColor: COLORS.excellentGreen,
-    gradient: ["#10B981", "#059669"], // Kept green matching active logs criteria
+    gradient: ["#336956", "#458A72"],
   },
   {
     name: "Tips",
     path: "/tips",
     icon: "lightbulb",
-    bg: "rgba(160, 82, 45, 0.1)",
-    iconColor: COLORS.darkSienna,
-    gradient: ["#A0522D", "#E35336"],
+    bg: "rgba(224, 150, 67, 0.08)",
+    iconColor: COLORS.secondary,
+    gradient: ["#E09643", "#F2B46D"],
   },
   {
     name: "Trends",
     path: "/trends",
     icon: "trending-up",
-    bg: "rgba(74, 35, 26, 0.08)",
+    bg: "rgba(87, 104, 96, 0.08)",
     iconColor: COLORS.textLight,
-    gradient: ["#8C665C", "#4A231A"],
+    gradient: ["#576860", "#11231D"],
   },
   {
     name: "Settings",
     path: "/settings",
     icon: "settings",
-    bg: "rgba(227, 83, 54, 0.1)",
+    bg: "rgba(51, 105, 86, 0.08)",
     iconColor: COLORS.primary,
-    gradient: ["#E35336", "#A0522D"],
+    gradient: ["#336956", "#1B4235"],
   },
 ] as const;
 
