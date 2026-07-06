@@ -787,53 +787,45 @@ export default function UserHome() {
           </View>
 
           {/* Stats Grid */}
-          {!statsLoading && (
+        {!statsLoading && (
             <View style={isDesktop ? styles.statsCardMainRowFlex : styles.statsCardMobileGridFlex}>
               <View style={[styles.statsMiniGridTile, { borderLeftColor: COLORS.critical }]}>
-                <View style={[styles.statsTileIconWrapperCircle, { backgroundColor: "rgba(239, 68, 68, 0.08)" }]}>
+                <View style={styles.statsTileIconWrapperCircle}>
                   <Feather name="zap" size={16} color={COLORS.critical} />
                 </View>
-                <View style={{ marginLeft: 12, flex: 1 }}>
+                <View style={{ marginLeft: 10, flex: 1 }}>
                   <Text style={styles.statsTileLabelTitle}>Drain Metrics</Text>
-                  <Text style={[styles.statsTileNumericalValueText, { color: COLORS.textDark }]}>
-                    {statsData.drainActivitiesCount}
-                  </Text>
+                  <Text style={styles.statsTileNumericalValueText}>{statsData.drainActivitiesCount}</Text>
                 </View>
               </View>
-
+              
               <View style={[styles.statsMiniGridTile, { borderLeftColor: COLORS.excellent }]}>
-                <View style={[styles.statsTileIconWrapperCircle, { backgroundColor: COLORS.excellentBg }]}>
+                <View style={styles.statsTileIconWrapperCircle}>
                   <Feather name="heart" size={16} color={COLORS.excellent} />
                 </View>
                 <View style={{ marginLeft: 12, flex: 1 }}>
-                  <Text style={[styles.statsTileLabelTitle, { color: COLORS.excellent }]}>Recovery Logs</Text>
-                  <Text style={[styles.statsTileNumericalValueText, { color: COLORS.excellent }]}>
-                    {statsData.recoveryActivitiesCount}
-                  </Text>
+                  <Text style={styles.statsTileLabelTitle}>Recovery Logs</Text>
+                  <Text style={styles.statsTileNumericalValueText}>{statsData.recoveryActivitiesCount}</Text>
                 </View>
               </View>
 
               <View style={[styles.statsMiniGridTile, { borderLeftColor: COLORS.secondary }]}>
-                <View style={[styles.statsTileIconWrapperCircle, { backgroundColor: "rgba(244, 164, 96, 0.08)" }]}>
+                <View style={styles.statsTileIconWrapperCircle}>
                   <Feather name="book-open" size={16} color={COLORS.secondary} />
                 </View>
                 <View style={{ marginLeft: 12, flex: 1 }}>
-                  <Text style={styles.statsTileLabelTitle}>Available Insights</Text>
-                  <Text style={[styles.statsTileNumericalValueText, { color: COLORS.textDark }]}>
-                    {statsData.totalTipsCount}
-                  </Text>
+                  <Text style={styles.statsTileLabelTitle}>Insights</Text>
+                  <Text style={styles.statsTileNumericalValueText}>{statsData.totalTipsCount}</Text>
                 </View>
               </View>
 
               <View style={[styles.statsMiniGridTile, { borderLeftColor: COLORS.darkSienna }]}>
-                <View style={[styles.statsTileIconWrapperCircle, { backgroundColor: "rgba(160, 82, 45, 0.08)" }]}>
+                <View style={styles.statsTileIconWrapperCircle}>
                   <Feather name="check-square" size={16} color={COLORS.darkSienna} />
                 </View>
                 <View style={{ marginLeft: 12, flex: 1 }}>
-                  <Text style={styles.statsTileLabelTitle}>Applied Tips</Text>
-                  <Text style={[styles.statsTileNumericalValueText, { color: COLORS.textDark }]}>
-                    {statsData.appliedTipLogsCount}
-                  </Text>
+                  <Text style={styles.statsTileLabelTitle}>Applied</Text>
+                  <Text style={styles.statsTileNumericalValueText}>{statsData.appliedTipLogsCount}</Text>
                 </View>
               </View>
             </View>
@@ -1480,58 +1472,43 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 14,
   },
-  statsCardMainRowFlex: {
-    width: "100%",
-    gap: 14,
-    marginBottom: 24,
-    alignItems: "stretch",
+ statsCardMainRowFlex: { 
+    width: "100%", 
+    flexDirection: "row", 
+    gap: 14, 
+    marginTop: 20,
+    justifyContent: "space-between"
   },
-  statsCardMobileGridFlex: {
-    width: "100%",
-    flexDirection: "row",
+  statsCardMobileGridFlex: { 
+    width: "100%", 
+    flexDirection: "row", 
     flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 12,
-    marginBottom: 24,
+    gap: 12, 
+    marginTop: 20,
+    justifyContent: "space-between"
   },
-  statsMiniGridTile: {
-    flex: isDesktop ? 1 : 0,
-    width: isDesktop ? "auto" : "48%",
+  statsMiniGridTile: { 
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    backgroundColor: COLORS.cardBg, 
+    borderRadius: 16, 
+    padding: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
     borderLeftWidth: 5,
-    ...Platform.select({
-      ios: { shadowColor: COLORS.darkSienna, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 8 },
-      android: { elevation: 2 },
-    }),
+    width: isDesktop ? "23%" : "48%",
+    minHeight: 65
   },
   statsTileIconWrapperCircle: {
-    width: 38,
-    height: 34,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.03)",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "center"
   },
-  statsTileLabelTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-  },
-  statsTileText: {
-    fontSize: 14,
-    color: "#576860",
-  },
-  statsTileNumericalValueText: {
-    fontSize: 22,
-    fontWeight: "800",
-    marginTop: 2,
-  },
+  statsTileLabelTitle: { fontSize: 11, fontWeight: "700", color: COLORS.textLight, textTransform: "uppercase" },
+  statsTileNumericalValueText: { fontSize: 18, fontWeight: "800", color: COLORS.textDark, marginTop: 2 },
   newspaperBannerCard: {
     backgroundColor: "rgba(255, 255, 255, 0.85)",
     borderWidth: 1,
