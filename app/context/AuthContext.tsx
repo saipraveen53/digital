@@ -29,6 +29,7 @@ interface JWTPayload {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  loginWithGoogleToken: (token: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   isLoading: boolean;
   isInitializing: boolean;
@@ -36,37 +37,21 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Extract user data from JWT token
 const extractUserFromToken = (token: string): User | null => {
   try {
     const decoded = jwtDecode<JWTPayload>(token);
-    
     const currentTime = Math.floor(Date.now() / 1000);
-    if (decoded.exp < currentTime) {
-      console.log('Token expired');
-      return null;
-    }
+    if (decoded.exp < currentTime) return null;
 
     const authorities = decoded.role || [];
     const isAdmin = authorities.some(auth => auth.authority.includes('ADMIN'));
     const role: UserRole = isAdmin ? 'admin' : 'user';
 
     const emailParts = decoded.sub.split('@');
-    const name = emailParts[0].split('.').map(part => 
-      part.charAt(0).toUpperCase() + part.slice(1)
-    ).join(' ');
+    const name = emailParts[0].split('.').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
 
-    return {
-      id: decoded.userId,
-      email: decoded.sub,
-      role: role,
-      name: name,
-      subscription: 'free',
-      isLoggedIn: true,
-      token: token,
-    };
+    return { id: decoded.userId, email: decoded.sub, role, name, isLoggedIn: true, token };
   } catch (error) {
-    console.error('Error decoding JWT:', error);
     return null;
   }
 };
@@ -83,16 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isInitializing) {
-      const inAuthGroup = segments[0] === '(admin)' || segments[0] === '(user)';
       const inPublicGroup = segments[0] === '(public)';
-
       if (user && user.isLoggedIn && inPublicGroup) {
-        if (user.role === 'admin') {
-          router.replace('/(admin)/dashboard');
-        } else {
-          router.replace('/(user)/home');
-        }
-      } else if (!user && !inPublicGroup && !isInitializing) {
+        if (user.role === 'admin') router.replace('/(admin)/dashboard');
+        else router.replace('/(user)/home');
+      } else if (!user && !inPublicGroup) {
         router.replace('/(public)/login');
       }
     }
@@ -102,96 +82,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const userDataString = await AsyncStorage.getItem('userData');
-      
       if (token && userDataString) {
         const decoded = jwtDecode<JWTPayload>(token);
-        const currentTime = Math.floor(Date.now() / 1000);
-        
-        if (decoded.exp < currentTime) {
-          console.log('Stored token expired');
+        if (decoded.exp < Math.floor(Date.now() / 1000)) {
           await AsyncStorage.multiRemove(['userToken', 'userData']);
           setUser(null);
         } else {
-          const parsedUser: User = JSON.parse(userDataString);
-          setUser({ ...parsedUser, isLoggedIn: true, token });
+          setUser({ ...JSON.parse(userDataString), isLoggedIn: true, token });
         }
       } else {
         setUser(null);
       }
     } catch (error) {
-      console.error('Error checking existing auth:', error);
       await AsyncStorage.multiRemove(['userToken', 'userData']);
       setUser(null);
     } finally {
-      setTimeout(() => {
-        setIsInitializing(false);
-      }, 100);
+      setIsInitializing(false);
     }
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+  const handleAuthSuccess = async (token: string, userData: User) => {
+    await AsyncStorage.setItem('userToken', token);
+    await AsyncStorage.setItem('userData', JSON.stringify({
+      id: userData.id,
+      email: userData.email,
+      role: userData.role,
+      name: userData.name,
+    }));
+    setUser(userData);
+    setIsLoading(false);
+    setTimeout(() => {
+      if (userData.role === 'admin') router.replace('/(admin)/dashboard');
+      else router.replace('/(user)/home');
+    }, 100);
+  };
+
+  const login = async (email: string, password: string) => {
     setIsLoading(true);
-    
     try {
       const response = await rootApi.post<string>('/api/auth/login', { email, password });
       const token = response.data;
-
-      if (!token || typeof token !== 'string') {
-        throw new Error('Invalid token received from server');
-      }
-
       const userData = extractUserFromToken(token);
-      if (!userData) {
-        throw new Error('Failed to extract user data from token');
-      }
-
-      await AsyncStorage.setItem('userToken', token);
-      await AsyncStorage.setItem('userData', JSON.stringify({
-        id: userData.id,
-        email: userData.email,
-        role: userData.role,
-        name: userData.name,
-        subscription: userData.subscription,
-      }));
-
-      setUser(userData);
-      setIsLoading(false);
+      if (!userData) throw new Error('Invalid token');
       
-      return { 
-        success: true, 
-        message: `Welcome back, ${userData.name}!` 
-      };
+      await handleAuthSuccess(token, userData);
+      return { success: true, message: `Welcome back, ${userData.name}!` };
     } catch (error: any) {
       setIsLoading(false);
-      
-      if (error.response) {
-        const status = error.response.status;
-        const message = error.response.data?.message || 'Invalid credentials';
-        
-        switch (status) {
-          case 401:
-            return { success: false, message: 'Invalid email or password' };
-          case 403:
-            return { success: false, message: 'Account is disabled or not verified' };
-          case 429:
-            return { success: false, message: 'Too many attempts. Please try again later.' };
-          default:
-            return { success: false, message };
-        }
-      } else if (error.request) {
-        return { 
-          success: false, 
-          message: 'Unable to connect to server. Please check your internet connection.' 
-        };
-      } else {
-        return { 
-          success: false, 
-          message: error.message || 'An unexpected error occurred. Please try again.' 
-        };
-      }
+      return { success: false, message: error.response?.data?.message || 'Login failed' };
     }
   };
 
+  const loginWithGoogleToken = async (token: string) => {
+    setIsLoading(true);
+    try {
+      const userData = extractUserFromToken(token);
+      if (!userData) throw new Error('Invalid OAuth Token');
+      
+      await handleAuthSuccess(token, userData);
+      return { success: true, message: `Welcome, ${userData.name}!` };
+    } catch (error: any) {
+      setIsLoading(false);
+      return { success: false, message: error.message || 'Google Login Failed' };
+    }
+  };
   const logout = async () => {
     const confirmLogout = () => {
       return new Promise<boolean>((resolve) => {
@@ -218,7 +172,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         await AsyncStorage.multiRemove(['userToken', 'userData']);
         setUser(null);
-        // Force immediate navigation to prevent admin layout from re-rendering with null user
         router.replace('/(public)/login');
       } catch (error) {
         console.error('Error during logout:', error);
@@ -226,13 +179,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const value = {
-    user,
-    login,
-    logout,
-    isLoading,
-    isInitializing,
-  };
+ const value = {
+  user,
+  login,
+  logout,
+  loginWithGoogleToken,
+  isLoading,
+  isInitializing,
+};
 
   if (isInitializing) {
     return null;

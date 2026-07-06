@@ -28,6 +28,7 @@ export default function PublicNavbar({ user }: PublicNavbarProps) {
     { name: "About", path: "/about" },
     { name: "Features", path: "/features" },
     { name: "Pricing", path: "/pricing" },
+    { name: "FAQ", path: "/faq" },
   ];
 
   const isHome = pathname === "/" || pathname === "";

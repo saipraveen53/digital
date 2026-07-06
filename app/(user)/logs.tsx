@@ -12,11 +12,10 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import Animated, {
   interpolate,
@@ -29,20 +28,19 @@ import { rootApi } from "../utils/axiosInstance";
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const isDesktop = screenWidth >= 1024;
 
-// ✅ FIXED: Color configurations fully synchronized with premium brand image aesthetics
 const COLORS = {
-  background: "#FAF9F5",       // Clean minimalist crisp warm cream background tone
+  background: "#FAF9F5",       
   cardBg: "rgba(255, 255, 255, 0.90)",   
-  textDark: "#11231D",        // Strong dark slate accent green text header tone
-  textLight: "#576860",       // Smooth soothing mid-tone slate green for subtitles
-  primary: "#336956",         // Brand Deep Emerald Green focus color from panels
-  secondary: "#E09643",       // Warm balanced progress amber variant from gauge fill
-  darkSienna: "#1B4235",      // Luxury dense forest green boundary tint
+  textDark: "#11231D",        
+  textLight: "#576860",       
+  primary: "#336956",         
+  secondary: "#E09643",       
+  darkSienna: "#1B4235",      
   border: "rgba(51, 105, 86, 0.08)", 
   
-  recoveryGreen: "#336956",   // Synchronized with main brand emerald green
+  recoveryGreen: "#336956",   
   recoveryBg: "rgba(51, 105, 86, 0.08)", 
-  drainColor: "#DC2626",       // Vibrant red for critical warning configurations
+  drainColor: "#DC2626",       
 };
 
 interface ActivityItem {
@@ -65,23 +63,18 @@ interface RecentActivityLog {
 export default function LogsScreen() {
   const [customActivities, setCustomActivities] = useState<ActivityItem[]>([]);
   const [drainActivities, setDrainActivities] = useState<ActivityItem[]>([]);
-  const [recoveryActivities, setRecoveryActivities] = useState<ActivityItem[]>(
-    [],
-  );
+  const [recoveryActivities, setRecoveryActivities] = useState<ActivityItem[]>([]);
   const [recentLogs, setRecentLogs] = useState<RecentActivityLog[]>([]);
 
-  const [loadingStates, setLoadingStates] = useState<{
-    [key: string]: boolean;
-  }>({});
-  const [toggleLoadingStates, setToggleLoadingStates] = useState<{
-    [key: string]: boolean;
-  }>({});
+  const [loadingStates, setLoadingStates] = useState<{ [key: string]: boolean }>({});
+  const [toggleLoadingStates, setToggleLoadingStates] = useState<{ [key: string]: boolean }>({});
   const [globalLoading, setGlobalLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const [completionSuccessVisible, setCompletionSuccessVisible] =
-    useState(false);
+  // Success Modal States
+  const [completionSuccessVisible, setCompletionSuccessVisible] = useState(false);
   const [completedActivityName, setCompletedActivityName] = useState("");
+  const [deleteSuccessVisible, setDeleteSuccessVisible] = useState(false);
 
   const [newFormName, setNewFormName] = useState("");
   const [newFormType, setNewFormType] = useState<"DRAIN" | "RECOVERY">("DRAIN");
@@ -132,24 +125,16 @@ export default function LogsScreen() {
   const fetchAllData = async () => {
     setGlobalLoading(true);
     try {
-      const resCustom = await rootApi.get<ActivityItem[]>(
-        "/api/user/getActivities",
-      );
+      const resCustom = await rootApi.get<ActivityItem[]>("/api/user/getActivities");
       setCustomActivities(resCustom.data || []);
 
-      const resDrain = await rootApi.get<ActivityItem[]>(
-        "/api/user/getActivities?activityType=DRAIN",
-      );
+      const resDrain = await rootApi.get<ActivityItem[]>("/api/user/getActivities?activityType=DRAIN");
       setDrainActivities(resDrain.data || []);
 
-      const resRecovery = await rootApi.get<ActivityItem[]>(
-        "/api/user/getActivities?activityType=RECOVERY",
-      );
+      const resRecovery = await rootApi.get<ActivityItem[]>("/api/user/getActivities?activityType=RECOVERY");
       setRecoveryActivities(resRecovery.data || []);
 
-      const resRecent = await rootApi.get<RecentActivityLog[]>(
-        "/api/user/recent-activities",
-      );
+      const resRecent = await rootApi.get<RecentActivityLog[]>("/api/user/recent-activities");
       setRecentLogs(resRecent.data || []);
     } catch (err) {
       console.error("Data parsing synchronization rejected:", err);
@@ -158,16 +143,11 @@ export default function LogsScreen() {
     }
   };
 
-  const handleCompleteActivity = async (
-    activityId: string,
-    activityName: string,
-  ) => {
+  const handleCompleteActivity = async (activityId: string, activityName: string) => {
     setLoadingStates((prev) => ({ ...prev, [activityId]: true }));
     try {
       await rootApi.post(`/api/user/completeActivity?activityId=${activityId}`);
-      const resRecent = await rootApi.get<RecentActivityLog[]>(
-        "/api/user/recent-activities",
-      );
+      const resRecent = await rootApi.get<RecentActivityLog[]>("/api/user/recent-activities");
       setRecentLogs(resRecent.data || []);
 
       setCompletedActivityName(activityName);
@@ -179,32 +159,28 @@ export default function LogsScreen() {
     }
   };
 
-  const handleToggleActivityStatus = async (
-    activityId: string,
-    currentStatus: boolean,
-  ) => {
-    const nextStatus = !currentStatus;
+  const handleDeleteActivity = async (activityId: string) => {
     setToggleLoadingStates((prev) => ({ ...prev, [activityId]: true }));
     try {
       await rootApi.put(`/api/user/delete/${activityId}`, null, {
-        params: { status: nextStatus },
+        params: { status: false },
       });
 
-      const updater = (prev: ActivityItem[]) =>
-        prev.map((item) =>
-          item.activityId === activityId
-            ? { ...item, status: nextStatus }
-            : item,
-        );
+      // ✅ FIXED: filterPeriod బగ్‌ను కరెక్ట్ చేసి UI స్టేట్ నుండి తక్షణమే తీసివేస్తున్నాం
+      const filterUpdater = (prev: ActivityItem[]) =>
+        prev.filter((item) => item.activityId !== activityId);
 
-      setCustomActivities(updater);
-      setDrainActivities(updater);
-      setRecoveryActivities(updater);
+      setCustomActivities(filterUpdater);
+      setDrainActivities(filterUpdater);
+      setRecoveryActivities(filterUpdater);
+      
+      // ✅ SUCCESS MODAL OPEN
+      setDeleteSuccessVisible(true);
+
+      // బ్యాకెండ్ సింక్ కోసం
+      fetchAllData();
     } catch (err) {
-      console.error(
-        "Failed updating activation toggle state criteria matrix:",
-        err,
-      );
+      console.error("Failed executing delete request matrix:", err);
     } finally {
       setToggleLoadingStates((prev) => ({ ...prev, [activityId]: false }));
     }
@@ -230,30 +206,16 @@ export default function LogsScreen() {
     }
   };
 
-  const calculatedRecoveryAccumulated = recentLogs
-    .filter((log) => log.activityType === "RECOVERY")
-    .reduce((sum, item) => sum + item.scoreChange, 0);
-
-  const calculatedDrainAccumulated = recentLogs
-    .filter((log) => log.activityType === "DRAIN")
-    .reduce((sum, item) => sum + item.scoreChange, 0);
-
   const sphereStyleLeft = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(scrollY.value, [0, screenHeight], [0, -220]) },
-    ],
+    transform: [{ translateY: interpolate(scrollY.value, [0, screenHeight], [0, -220]) }],
   }));
 
   const sphereStyleRight = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(scrollY.value, [0, screenHeight], [120, -130]) },
-    ],
+    transform: [{ translateY: interpolate(scrollY.value, [0, screenHeight], [120, -130]) }],
   }));
 
   const sphereStyleCenter = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(scrollY.value, [0, screenHeight], [-50, -380]) },
-    ],
+    transform: [{ translateY: interpolate(scrollY.value, [0, screenHeight], [-50, -380]) }],
   }));
 
   if (globalLoading) {
@@ -291,15 +253,8 @@ export default function LogsScreen() {
                 setModalVisible(true);
               }}
             >
-              <Feather
-                name="plus-circle"
-                size={16}
-                color="white"
-                style={{ marginRight: 6 }}
-              />
-              <Text style={styles.desktopTriggerCTAText}>
-                Add Custom Activity
-              </Text>
+              <Feather name="plus-circle" size={16} color="white" style={{ marginRight: 6 }} />
+              <Text style={styles.desktopTriggerCTAText}>Add Custom Activity</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -373,133 +328,10 @@ export default function LogsScreen() {
           </View>
         </View>
 
-        <View style={styles.vibrantSummaryStatsRow}>
-          <View style={[styles.summaryStatMiniCard, { borderLeftColor: COLORS.recoveryGreen }]}>
-            <Feather name="plus-circle" size={18} color={COLORS.recoveryGreen} />
-            <Text style={[styles.summaryStatValueText, { color: COLORS.recoveryGreen }]}>
-              +{calculatedRecoveryAccumulated}%
-            </Text>
-            <Text style={[styles.summaryStatLabelText, { color: COLORS.textLight }]}>
-              Recovery Scores Logged
-            </Text>
-          </View>
-          <View style={[styles.summaryStatMiniCard, { borderLeftColor: COLORS.drainColor }]}>
-            <Feather name="minus-circle" size={18} color={COLORS.drainColor} />
-            <Text style={[styles.summaryStatValueText, { color: COLORS.textDark }]}>
-              -{calculatedDrainAccumulated}%
-            </Text>
-            <Text style={[styles.summaryStatLabelText, { color: COLORS.textLight }]}>
-              Drain Impact Factor
-            </Text>
-          </View>
-        </View>
-
         <View style={isDesktop ? styles.desktopBentoContainerGrid : styles.mobileVerticalStackedLayout}>
+          
+          {/* LEFT COLUMN: Recovery Activities */}
           <View style={isDesktop ? styles.desktopGridFlexibleColumn : styles.fullWidthPanelStack}>
-            
-            {/* SECTION: CUSTOM ACTIVITIES PANEL */}
-            <View style={styles.glassDashboardCardItem}>
-              <Text style={[styles.cardSectionMainTitleText, { color: COLORS.textDark }]}>
-                Your Custom Activities
-              </Text>
-              <Text style={[styles.cardSectionMiniLabelText, { color: COLORS.textLight }]}>
-                Tap + to log subjective action events into active loop buffers.
-              </Text>
-
-              {customActivities.length === 0 ? (
-                <Text style={[styles.emptyFallbackPlaceholderText, { color: COLORS.textLight }]}>
-                  No unique modifications declared yet.
-                </Text>
-              ) : (
-                // ✅ FIXED: Scrollable list shell wrapper beyond 5 base items natively
-                <ScrollView style={styles.innerScrollLayoutList} nestedScrollEnabled={true}>
-                  {customActivities.map((item) => (
-                    <View key={item.activityId} style={[styles.activityHorizontalTileRowLayout, !item.status && { opacity: 0.55 }]}>
-                      <View style={{ flex: 1.1, paddingRight: 4 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-                          <Text style={[styles.activityItemNameMainText, { color: COLORS.textDark }, !item.status && { textDecorationLine: "line-through" }]} numberOfLines={2}>
-                            {item.activityName}
-                          </Text>
-                          <View style={[styles.badgeContainer, { backgroundColor: item.status ? COLORS.recoveryBg : "rgba(87, 104, 96, 0.15)" }]}>
-                            <Text style={[styles.badgeText, { color: item.status ? COLORS.recoveryGreen : COLORS.textLight }]}>
-                              {item.status ? "Active" : "Inactive"}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={[styles.activityItemTypeIndicatorLabel, { color: item.activityType === "DRAIN" ? COLORS.drainColor : COLORS.recoveryGreen }]}>
-                          {item.activityType}
-                        </Text>
-                      </View>
-
-                      <View style={styles.actionControlInteractiveRowGroup}>
-                        <Text style={[styles.percentageMetricDisplayValueText, { color: item.activityType === "DRAIN" ? COLORS.drainColor : COLORS.recoveryGreen }]}>
-                          {item.activityType === "DRAIN" ? "-" : "+"}
-                          {item.activityPercenage}%
-                        </Text>
-
-                        <TouchableOpacity style={[styles.plusTileIconActionButton, !item.status && { backgroundColor: "rgba(87, 104, 96, 0.08)" }]} onPress={() => handleCompleteActivity(item.activityId, item.activityName)} disabled={loadingStates[item.activityId] || !item.status}>
-                          {loadingStates[item.activityId] ? (
-                            <ActivityIndicator size="small" color={COLORS.primary} />
-                          ) : (
-                            <Feather name="plus" size={14} color={item.status ? COLORS.primary : "#94A3B8"} />
-                          )}
-                        </TouchableOpacity>
-
-                        <View style={{ marginLeft: 2, justifyContent: "center" }}>
-                          <Switch
-                            value={item.status}
-                            onValueChange={() => handleToggleActivityStatus(item.activityId, item.status)}
-                            trackColor={{ false: "#CBD5E1", true: "rgba(51, 105, 86, 0.4)" }}
-                            thumbColor={item.status ? COLORS.primary : "#94A3B8"}
-                            style={Platform.OS === "web" ? { transform: [{ scale: 0.8 }] } : { transform: [{ scaleX: 0.78 }, { scaleY: 0.78 }] }}
-                          />
-                        </View>
-                      </View>
-                    </View>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-
-            {/* SECTION: HISTORY TIMELINE LOG FEED */}
-            <View style={styles.glassDashboardCardItem}>
-              <Text style={[styles.cardSectionMainTitleText, { color: COLORS.textDark }]}>
-                Recent History Logs
-              </Text>
-              {recentLogs.length === 0 ? (
-                <Text style={[styles.emptyFallbackPlaceholderText, { color: COLORS.textLight }]}>
-                  No system log recordings parsed today.
-                </Text>
-              ) : (
-                // ✅ FIXED: Scrollable history list shell configuration handling updates safely
-                <ScrollView style={styles.innerScrollLayoutList} nestedScrollEnabled={true}>
-                  {recentLogs.map((log, index) => (
-                    <View key={log.activityLogId || index} style={styles.recentHistoryLogItemFlexibleRow}>
-                      <View style={styles.recentHistoryLogItemSymbolMarkerWrapper}>
-                        <View style={[styles.recentHistoryIndicatorStatusDot, { backgroundColor: log.activityType === "DRAIN" ? COLORS.drainColor : COLORS.recoveryGreen }]} />
-                      </View>
-                      <View style={{ flex: 1, paddingLeft: 12 }}>
-                        <Text style={[styles.recentHistoryActivityLoggedTitleText, { color: COLORS.textDark }]}>
-                          {log.activityName}
-                        </Text>
-                        <Text style={[styles.recentHistoryActivityLoggedTimestampText, { color: COLORS.textLight }]}>
-                          {log.completedAt ? new Date(log.completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Just Parsed"}
-                        </Text>
-                      </View>
-                      <Text style={[styles.recentHistoryScoreChangeImpactBadgeValueText, { color: log.activityType === "DRAIN" ? COLORS.drainColor : COLORS.recoveryGreen }]}>
-                        {log.activityType === "DRAIN" ? "" : "+"}
-                        {log.scoreChange}%
-                      </Text>
-                    </View>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-          </View>
-
-          <View style={isDesktop ? styles.desktopGridFlexibleColumn : styles.fullWidthPanelStack}>
-            
-            {/* RECOVERY GROUP ITEMS FEED CONTAINER */}
             <View style={styles.glassDashboardCardItem}>
               <View style={styles.headerTitleContainerRowLayout}>
                 <Feather name="trending-up" size={18} color={COLORS.recoveryGreen} style={{ marginRight: 8 }} />
@@ -508,12 +340,11 @@ export default function LogsScreen() {
                 </Text>
               </View>
               
-              {/* ✅ FIXED: Inner layout scrolling panel attached below 5 items */}
               <ScrollView style={styles.innerScrollLayoutList} nestedScrollEnabled={true}>
                 {recoveryActivities.map((item) => (
                   <View key={item.activityId} style={[styles.activityHorizontalTileRowLayout, !item.status && { opacity: 0.55 }]}>
                     <View style={{ flex: 1, paddingRight: 4 }}>
-                      <Text style={[styles.activityItemNameMainText, { color: COLORS.textDark }, !item.status && { textDecorationLine: "line-through" }]} numberOfLines={2}>
+                      <Text style={[styles.activityItemNameMainText, { color: COLORS.textDark }]} numberOfLines={2}>
                         {item.activityName}
                       </Text>
                     </View>
@@ -522,26 +353,30 @@ export default function LogsScreen() {
                         +{item.activityPercenage}%
                       </Text>
 
-                      <TouchableOpacity style={[styles.plusTileIconActionButton, !item.status && { backgroundColor: "rgba(51, 105, 86, 0.08)" }]} onPress={() => handleCompleteActivity(item.activityId, item.activityName)} disabled={!item.status}>
-                        <Feather name="plus" size={14} color={item.status ? COLORS.primary : "#94A3B8"} />
+                      <TouchableOpacity style={styles.plusTileIconActionButton} onPress={() => handleCompleteActivity(item.activityId, item.activityName)}>
+                        <Feather name="plus" size={14} color={COLORS.primary} />
                       </TouchableOpacity>
 
-                      <View style={{ marginLeft: 2 }}>
-                        <Switch
-                          value={item.status}
-                          onValueChange={() => handleToggleActivityStatus(item.activityId, item.status)}
-                          trackColor={{ false: "#CBD5E1", true: "rgba(51, 105, 86, 0.4)" }}
-                          thumbColor={item.status ? COLORS.primary : "#94A3B8"}
-                          style={Platform.OS === "web" ? { transform: [{ scale: 0.8 }] } : { transform: [{ scaleX: 0.78 }, { scaleY: 0.78 }] }}
-                        />
-                      </View>
+                      <TouchableOpacity 
+                        style={{ marginLeft: 8, padding: 6 }} 
+                        onPress={() => handleDeleteActivity(item.activityId)}
+                        disabled={toggleLoadingStates[item.activityId]}
+                      >
+                        {toggleLoadingStates[item.activityId] ? (
+                          <ActivityIndicator size="small" color={COLORS.drainColor} />
+                        ) : (
+                          <Feather name="trash-2" size={16} color={COLORS.drainColor} />
+                        )}
+                      </TouchableOpacity>
                     </View>
                   </View>
                 ))}
               </ScrollView>
             </View>
+          </View>
 
-            {/* DRAINING GROUP ITEMS FEED CONTAINER */}
+          {/* RIGHT COLUMN: Draining Activities */}
+          <View style={isDesktop ? styles.desktopGridFlexibleColumn : styles.fullWidthPanelStack}>
             <View style={styles.glassDashboardCardItem}>
               <View style={styles.headerTitleContainerRowLayout}>
                 <Feather name="trending-down" size={18} color={COLORS.drainColor} style={{ marginRight: 8 }} />
@@ -550,12 +385,11 @@ export default function LogsScreen() {
                 </Text>
               </View>
               
-              {/* ✅ FIXED: Scrollable vertical window logic layer */}
               <ScrollView style={styles.innerScrollLayoutList} nestedScrollEnabled={true}>
                 {drainActivities.map((item) => (
                   <View key={item.activityId} style={[styles.activityHorizontalTileRowLayout, !item.status && { opacity: 0.55 }]}>
                     <View style={{ flex: 1, paddingRight: 4 }}>
-                      <Text style={[styles.activityItemNameMainText, { color: COLORS.textDark }, !item.status && { textDecorationLine: "line-through" }]} numberOfLines={2}>
+                      <Text style={[styles.activityItemNameMainText, { color: COLORS.textDark }]} numberOfLines={2}>
                         {item.activityName}
                       </Text>
                     </View>
@@ -564,30 +398,32 @@ export default function LogsScreen() {
                         -{item.activityPercenage}%
                       </Text>
 
-                      <TouchableOpacity style={[styles.plusTileIconActionButton, !item.status && { backgroundColor: "rgba(51, 105, 86, 0.08)" }]} onPress={() => handleCompleteActivity(item.activityId, item.activityName)} disabled={!item.status}>
-                        <Feather name="plus" size={14} color={item.status ? COLORS.primary : "#94A3B8"} />
+                      <TouchableOpacity style={styles.plusTileIconActionButton} onPress={() => handleCompleteActivity(item.activityId, item.activityName)}>
+                        <Feather name="plus" size={14} color={COLORS.primary} />
                       </TouchableOpacity>
 
-                      <View style={{ marginLeft: 2 }}>
-                        <Switch
-                          value={item.status}
-                          onValueChange={() => handleToggleActivityStatus(item.activityId, item.status)}
-                          trackColor={{ false: "#CBD5E1", true: "rgba(51, 105, 86, 0.4)" }}
-                          thumbColor={item.status ? COLORS.primary : "#94A3B8"}
-                          style={Platform.OS === "web" ? { transform: [{ scale: 0.8 }] } : { transform: [{ scaleX: 0.78 }, { scaleY: 0.78 }] }}
-                        />
-                      </View>
+                      <TouchableOpacity 
+                        style={{ marginLeft: 8, padding: 6 }}
+                        onPress={() => handleDeleteActivity(item.activityId)}
+                        disabled={toggleLoadingStates[item.activityId]}
+                      >
+                        {toggleLoadingStates[item.activityId] ? (
+                          <ActivityIndicator size="small" color={COLORS.drainColor} />
+                        ) : (
+                          <Feather name="trash-2" size={16} color={COLORS.drainColor} />
+                        )}
+                      </TouchableOpacity>
                     </View>
                   </View>
                 ))}
               </ScrollView>
             </View>
-
           </View>
+
         </View>
       </Animated.ScrollView>
 
-      {/* SUCCESS COMPLETION ALERTS MODAL POPUP */}
+      {/* COMPLETION ALERTS MODAL POPUP */}
       <Modal animationType="fade" transparent={true} visible={completionSuccessVisible} onRequestClose={() => setCompletionSuccessVisible(false)}>
         <View style={styles.completionOverlayCenteredDimmer}>
           <View style={styles.completionSuccessCardAlert}>
@@ -600,6 +436,24 @@ export default function LogsScreen() {
             </Text>
             <TouchableOpacity style={[styles.completionDismissMainAnchorCTA, { backgroundColor: COLORS.primary }]} activeOpacity={0.8} onPress={() => setCompletionSuccessVisible(false)}>
               <Text style={[styles.completionDismissAnchorText, { color: '#FFFFFF' }]}>Dismiss Console</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ✅ NEW: DELETE SUCCESS MODAL POPUP */}
+      <Modal animationType="fade" transparent={true} visible={deleteSuccessVisible} onRequestClose={() => setDeleteSuccessVisible(false)}>
+        <View style={styles.completionOverlayCenteredDimmer}>
+          <View style={styles.completionSuccessCardAlert}>
+            <LinearGradient colors={["#DC2626", "#EF4444"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.completionGraphicBadgeWrapper}>
+              <Feather name="trash-2" size={32} color="#FFFFFF" />
+            </LinearGradient>
+            <Text style={[styles.completionSuccessHeadingTitle, { color: COLORS.textDark }]}>Activity Deleted Successfully</Text>
+            <Text style={[styles.completionSuccessParagraphBody, { color: COLORS.textLight }]}>
+              The activity has been completely removed from your active layout structure.
+            </Text>
+            <TouchableOpacity style={[styles.completionDismissMainAnchorCTA, { backgroundColor: COLORS.drainColor }]} activeOpacity={0.8} onPress={() => setDeleteSuccessVisible(false)}>
+              <Text style={[styles.completionDismissAnchorText, { color: '#FFFFFF' }]}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -788,37 +642,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginTop: 2,
   },
-  vibrantSummaryStatsRow: {
-    flexDirection: "row",
-    maxWidth: 1200,
-    width: "100%",
-    alignSelf: "center",
-    gap: 12,
-    marginBottom: 24,
-  },
-  summaryStatMiniCard: {
-    flex: 1,
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 20,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...Platform.select({
-      ios: { shadowColor: COLORS.darkSienna, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.02, shadowRadius: 6 },
-      android: { elevation: 2 },
-    }),
-  },
-  summaryStatValueText: {
-    fontSize: 20,
-    fontWeight: "900",
-    marginTop: 4,
-  },
-  summaryStatLabelText: {
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 2,
-  },
   desktopBentoContainerGrid: {
     flexDirection: "row",
     maxWidth: 1200,
@@ -854,24 +677,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
   },
-  cardSectionMiniLabelText: {
-    fontSize: 12,
-    marginTop: 4,
-    marginBottom: 16,
-  },
   headerTitleContainerRowLayout: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
   },
-  emptyFallbackPlaceholderText: {
-    fontSize: 13,
-    fontStyle: "italic",
-    textAlign: "center",
-    marginVertical: 12,
-  },
-  
-  // ✅ FIXED: Sets standard max height layout configurations for scroll maps tracking
   innerScrollLayoutList: {
     maxHeight: 280, 
     paddingRight: 4,
@@ -888,12 +698,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     lineHeight: 18,
-  },
-  activityItemTypeIndicatorLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    marginTop: 2,
-    letterSpacing: 0.5,
   },
   actionControlInteractiveRowGroup: {
     flexDirection: "row",
@@ -914,46 +718,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 4,
-  },
-  badgeContainer: {
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-    alignSelf: "flex-start",
-  },
-  badgeText: {
-    fontSize: 9,
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  recentHistoryLogItemFlexibleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(51, 105, 86, 0.06)",
-  },
-  recentHistoryLogItemSymbolMarkerWrapper: {
-    width: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  recentHistoryIndicatorStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  recentHistoryActivityLoggedTitleText: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  recentHistoryActivityLoggedTimestampText: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  recentHistoryScoreChangeImpactBadgeValueText: {
-    fontSize: 16,
-    fontWeight: "900",
   },
   modalBlurOverlayDimmer: {
     flex: 1,
@@ -985,6 +749,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
+  },
+  modalCloseCircleButton: {
+    padding: 4,
+  },
+  modalSheetMainTitle: {
+    fontSize: 18,
+    fontWeight: "800",
   },
   modalLabelTitleField: {
     fontSize: 12,
@@ -1028,12 +799,12 @@ const styles = StyleSheet.create({
   },
   completionOverlayCenteredDimmer: {
     flex: 1,
-    backgroundColor: "rgba(17, 35, 29, 0.3)",
+    backgroundColor: "rgba(17, 35, 29, 0.4)",
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
   },
-  completionSuccessAlertCard: {
+  completionSuccessCardAlert: {
     backgroundColor: "#FFFFFF",
     borderRadius: 32,
     padding: 28,
@@ -1078,5 +849,18 @@ const styles = StyleSheet.create({
   completionDismissAnchorText: {
     fontWeight: "700",
     fontSize: 14,
+  },
+  modalSubmitButtonCTA: {
+    paddingVertical: 14,
+    borderRadius: 16,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  modalSubmitButtonCTAText: {
+    fontWeight: "700",
+    fontSize: 15,
+    color: "#FFFFFF",
   },
 });

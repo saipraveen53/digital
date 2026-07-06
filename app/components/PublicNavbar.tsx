@@ -1,7 +1,7 @@
 import { usePathname, useRouter } from "expo-router";
-import { Droplets, Menu, X } from "lucide-react-native";
+import { Menu, X } from "lucide-react-native"; // Fixed import vector targets
 import React, { useState } from "react";
-import { Platform, Pressable, SafeAreaView, StatusBar, Text, View } from "react-native";
+import { Image, Platform, Pressable, SafeAreaView, StatusBar, Text, View } from "react-native"; // Handled Core Image component reference
  
 interface PublicNavbarProps {
   user?: any;
@@ -17,6 +17,7 @@ export default function PublicNavbar({ user }: PublicNavbarProps) {
     { name: "About", path: "/about" },
     { name: "Features", path: "/features" }, 
     { name: "Pricing", path: "/pricing" },
+    { name: "FAQ", path: "/faq" },
   ];
  
   const isHome = pathname === "/" || pathname === "";
@@ -31,9 +32,11 @@ export default function PublicNavbar({ user }: PublicNavbarProps) {
           <View className="w-full px-6 h-20 flex-row items-center justify-between">
            
             <Pressable onPress={() => router.push("/")} className="flex-row items-center gap-3">
-              <View className="w-10 h-10 rounded-[12px] bg-[#3E7B6A] items-center justify-center shadow-sm">
-                <Droplets size={22} color="white" />
-              </View>
+              <Image
+                source={require("../../assets/images/logo2.png")}
+                className="w-20 h-20 rounded-[12px]"
+                resizeMode="cover"
+              />
               <View className="flex-col items-start justify-center">
                 <Text style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, color: '#111827', lineHeight: 28 }}>
                   Wellbeing

@@ -88,7 +88,7 @@ const createAxiosInstance = (baseURL: string): AxiosInstance => {
 
 // Export the API instance
 export const rootApi: AxiosInstance = createAxiosInstance(
-  "http://192.168.88.20:8080/",
+  "https://wellbeing-fw2o.onrender.com/",
 );
 
 // Optional: Create additional instances for different base URLs

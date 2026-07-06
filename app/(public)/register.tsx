@@ -28,9 +28,9 @@ const { width: screenWidth } = Dimensions.get("window");
 const isDesktop = screenWidth >= 768;
 
 const COLORS = {
-  primary: "#0d9488", // Teal
+  primary: "#0d9488", 
   primaryDark: "#0f766e",
-  accent: "#E68C6C", // Warm Peach
+  accent: "#E68C6C", 
   background: "#F8F9FA",
   cardBg: "#FFFFFF",
   textDark: "#1E293B",
@@ -60,11 +60,17 @@ export default function RegisterScreen() {
   const [otpArray, setOtpArray] = useState<string[]>(["", "", "", "", "", ""]);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("MALE");
   const [role, setRole] = useState("STUDENT");
   const [wakeUpTime, setWakeUpTime] = useState("06:00");
   const [others, setOthers] = useState("");
+  
+  // New State variables requested
+  const [phoneNo, setPhoneNo] = useState("");
+  const [guardianName, setGuardianName] = useState("");
+  const [guardianPhoneNo, setGuardianPhoneNo] = useState("");
 
   // UI States
   const [showRoleModal, setShowRoleModal] = useState(false);
@@ -72,7 +78,6 @@ export default function RegisterScreen() {
 
   const otpRefs = useRef<Array<TextInput | null>>([]);
 
-  // --- Step 1: Send OTP handler (Fixed redundant loader states) ---
   const handleSendOtp = async () => {
     if (!email.trim() || !email.includes("@")) {
       setError("Please enter a valid email address");
@@ -88,9 +93,6 @@ export default function RegisterScreen() {
       setStep("OTP_AND_DETAILS");
     } catch (err: any) {
       if (err.response?.status === 409) {
-        console.log(
-          "Email exists, switching layout view straight to profile details step.",
-        );
         setError("");
         setStep("OTP_AND_DETAILS");
       } else {
@@ -104,7 +106,6 @@ export default function RegisterScreen() {
     }
   };
 
-  // --- OTP Handle Input Matrix ---
   const handleOtpChange = (text: string, index: number) => {
     const cleanedText = text.replace(/[^0-9]/g, "");
     if (!cleanedText) {
@@ -153,7 +154,30 @@ export default function RegisterScreen() {
     }
   };
 
-  // --- Step 2: Verify OTP & Register handler ---
+  // Input Field Validation Rules Engine
+  const validateFormPayload = () => {
+    if (!name.trim() || !password.trim() || !age.trim() || !wakeUpTime.trim() || !phoneNo.trim() || !guardianName.trim() || !guardianPhoneNo.trim()) {
+      return "Please fill in all required fields";
+    }
+
+    // Password regex validation: Minimum 8 characters, at least 1 uppercase letter, 1 lowercase letter, and 1 number
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return "Password must be at least 8 characters long, containing 1 uppercase letter, 1 lowercase letter, and 1 digit.";
+    }
+
+    // Phone standard number validation (10 digits check)
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(phoneNo.trim())) {
+      return "Please input a valid 10-digit personal phone number.";
+    }
+    if (!phoneRegex.test(guardianPhoneNo.trim())) {
+      return "Please input a valid 10-digit guardian phone number.";
+    }
+
+    return null;
+  };
+
   const handleSubmitWithOtp = async () => {
     const fullOtp = otpArray.join("");
 
@@ -162,8 +186,9 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (!name.trim() || !password.trim() || !age.trim() || !wakeUpTime.trim()) {
-      setError("Please fill in all required fields");
+    const validationErrorMsg = validateFormPayload();
+    if (validationErrorMsg) {
+      setError(validationErrorMsg);
       return;
     }
 
@@ -183,7 +208,10 @@ export default function RegisterScreen() {
       gender: gender,
       role: role,
       wakeUpTime: finalWakeUpISO,
-      others: others.trim() || "Mobile Platform User Client",
+      phoneNo: phoneNo.trim(),
+      guardianName: guardianName.trim(),
+      guardianPhoneNo: guardianPhoneNo.trim(),
+      others: others.trim() || "Mobile Client User",
     };
 
     try {
@@ -219,7 +247,6 @@ export default function RegisterScreen() {
       >
         <View style={styles.outerCenterContainer}>
           <View style={styles.responsiveBentoCard}>
-            {/* Top Back Action Header */}
             {step !== "SUCCESS" && (
               <TouchableOpacity
                 onPress={() =>
@@ -232,23 +259,13 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             )}
 
-            {/* Error Alert Display */}
             {error ? (
-              <Animated.View
-                entering={FadeInUp}
-                style={styles.errorAlertWrapper}
-              >
-                <Feather
-                  name="alert-triangle"
-                  size={16}
-                  color="#DC2626"
-                  style={{ marginRight: 8 }}
-                />
+              <Animated.View entering={FadeInUp} style={styles.errorAlertWrapper}>
+                <Feather name="alert-triangle" size={16} color="#DC2626" style={{ marginRight: 8 }} />
                 <Text style={styles.errorAlertText}>{error}</Text>
               </Animated.View>
             ) : null}
 
-            {/* --- STEP 1 LAYOUT: EMAIL INPUT ENTRY --- */}
             {step === "EMAIL" && (
               <Animated.View entering={FadeInDown.duration(400)}>
                 <View style={styles.iconGraphicHeaderCircle}>
@@ -256,19 +273,13 @@ export default function RegisterScreen() {
                 </View>
                 <Text style={styles.mainTitleText}>Create Account</Text>
                 <Text style={styles.subtitleGuideText}>
-                  Enter your email identifier below to distribute validation
-                  sequence code
+                  Enter your email address below to receive a verification code
                 </Text>
 
                 <View style={styles.inputContainerStack}>
                   <Text style={styles.labelTitleField}>Email Address</Text>
                   <View style={styles.inputFieldIconWrapper}>
-                    <Feather
-                      name="mail"
-                      size={18}
-                      color={COLORS.textLight}
-                      style={styles.inputPositionIcon}
-                    />
+                    <Feather name="mail" size={18} color={COLORS.textLight} style={styles.inputPositionIcon} />
                     <TextInput
                       style={styles.textInputBoxComponent}
                       placeholder="Enter your email"
@@ -286,23 +297,16 @@ export default function RegisterScreen() {
                   </View>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.ctaActionButton}
-                  onPress={handleSendOtp}
-                  disabled={isLoading}
-                >
+                <TouchableOpacity style={styles.ctaActionButton} onPress={handleSendOtp} disabled={isLoading}>
                   {isLoading ? (
                     <ActivityIndicator color="white" size="small" />
                   ) : (
-                    <Text style={styles.ctaTextButton}>
-                      Send Verification Code
-                    </Text>
+                    <Text style={styles.ctaTextButton}>Send Verification Code</Text>
                   )}
                 </TouchableOpacity>
               </Animated.View>
             )}
 
-            {/* --- STEP 2 LAYOUT: OTP AND PROFILE MATRIX DETAILS --- */}
             {step === "OTP_AND_DETAILS" && (
               <Animated.View entering={FadeInDown.duration(400)}>
                 <View style={styles.iconGraphicHeaderCircle}>
@@ -310,48 +314,39 @@ export default function RegisterScreen() {
                 </View>
                 <Text style={styles.mainTitleText}>Complete Registration</Text>
                 <Text style={styles.subtitleGuideText}>
-                  Enter the verification code from {email} and complete your
-                  profile
+                  Enter the verification code sent to {email} and complete your profile
                 </Text>
 
-                {/* OTP Input Section */}
+               {/* --- OTP Input Section --- */}
                 <Text style={styles.labelTitleField}>Verification Code</Text>
                 <View style={styles.otpGridRowFlex}>
                   {otpArray.map((digit, index) => (
                     <TextInput
                       key={index}
                       ref={(ref) => (otpRefs.current[index] = ref)}
-                      style={styles.otpSingleInputBox}
+                      style={[
+                        styles.otpSingleInputBox,
+                        digit ? { borderColor: COLORS.primary, borderWidth: 2 } : null
+                      ]}
                       keyboardType="number-pad"
                       maxLength={1}
                       value={digit}
                       onChangeText={(text) => handleOtpChange(text, index)}
                       onKeyPress={(e) => handleOtpKeyPress(e, index)}
                       textAlign="center"
-                      placeholderTextColor="#CBD5E1"
-                      placeholder="0"
+                      placeholderTextColor="#94A3B8"
+                      placeholder="•"
                       editable={!isLoading}
                       selectTextOnFocus
                     />
                   ))}
                 </View>
 
-                <TouchableOpacity
-                  onPress={handleCheckClipboardPaste}
-                  style={styles.clipboardShortcutAction}
-                >
-                  <Feather
-                    name="clipboard"
-                    size={14}
-                    color={COLORS.primary}
-                    style={{ marginRight: 4 }}
-                  />
-                  <Text style={styles.clipboardShortcutText}>
-                    Paste code from clipboard
-                  </Text>
+                <TouchableOpacity onPress={handleCheckClipboardPaste} style={styles.clipboardShortcutAction}>
+                  <Feather name="clipboard" size={14} color={COLORS.primary} style={{ marginRight: 4 }} />
+                  <Text style={styles.clipboardShortcutText}>Paste code from clipboard</Text>
                 </TouchableOpacity>
 
-                {/* Form Details Section */}
                 <View style={styles.inputContainerStack}>
                   <Text style={styles.labelTitleField}>Full Name</Text>
                   <TextInput
@@ -363,17 +358,40 @@ export default function RegisterScreen() {
                   />
                 </View>
 
+                {/* Secure Password Input Fields Matrix with Toggle Switch */}
                 <View style={styles.inputContainerStack}>
                   <Text style={styles.labelTitleField}>Secure Password</Text>
+                  <View style={styles.inputFieldIconWrapper}>
+                    <TextInput
+                      style={styles.textInputBoxComponentPlainPassword}
+                      placeholder="••••••••"
+                      placeholderTextColor="#94a3b8"
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      value={password}
+                      onChangeText={setPassword}
+                    />
+                    <TouchableOpacity 
+                      style={styles.passwordVisibilityIconToggle} 
+                      onPress={() => setShowPassword(!showPassword)}
+                    >
+                      <Feather name={showPassword ? "eye" : "eye-off"} size={18} color={COLORS.textLight} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* User Phone Number Field Block */}
+                <View style={styles.inputContainerStack}>
+                  <Text style={styles.labelTitleField}>Phone Number</Text>
                   <TextInput
                     style={styles.textInputBoxComponentPlain}
-                    placeholder="••••••••"
+                    placeholder="Enter 10 digit number"
                     placeholderTextColor="#94a3b8"
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    value={password}
-                    onChangeText={setPassword}
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    value={phoneNo}
+                    onChangeText={setPhoneNo}
                   />
                 </View>
 
@@ -396,18 +414,10 @@ export default function RegisterScreen() {
                       {["MALE", "FEMALE"].map((g) => (
                         <TouchableOpacity
                           key={g}
-                          style={[
-                            styles.selectorPillBtn,
-                            gender === g && styles.selectorPillBtnActive,
-                          ]}
+                          style={[styles.selectorPillBtn, gender === g && styles.selectorPillBtnActive]}
                           onPress={() => setGender(g)}
                         >
-                          <Text
-                            style={[
-                              styles.selectorPillText,
-                              gender === g && styles.selectorPillTextActive,
-                            ]}
-                          >
+                          <Text style={[styles.selectorPillText, gender === g && styles.selectorPillTextActive]}>
                             {g}
                           </Text>
                         </TouchableOpacity>
@@ -416,7 +426,6 @@ export default function RegisterScreen() {
                   </View>
                 </View>
 
-                {/* Account Role Trigger Dropdown / Modal */}
                 <View style={styles.inputContainerStack}>
                   <Text style={styles.labelTitleField}>Account Role</Text>
                   {isDesktop ? (
@@ -424,43 +433,20 @@ export default function RegisterScreen() {
                       <TouchableOpacity
                         style={styles.dropdownSelectorTrigger}
                         activeOpacity={0.9}
-                        onPress={() =>
-                          setShowDesktopDropdown(!showDesktopDropdown)
-                        }
+                        onPress={() => setShowDesktopDropdown(!showDesktopDropdown)}
                       >
-                        <Text style={styles.dropdownSelectorTriggerText}>
-                          {currentRoleLabel}
-                        </Text>
-                        <Feather
-                          name={
-                            showDesktopDropdown ? "chevron-up" : "chevron-down"
-                          }
-                          size={18}
-                          color={COLORS.textLight}
-                        />
+                        <Text style={styles.dropdownSelectorTriggerText}>{currentRoleLabel}</Text>
+                        <Feather name={showDesktopDropdown ? "chevron-up" : "chevron-down"} size={18} color={COLORS.textLight} />
                       </TouchableOpacity>
                       {showDesktopDropdown && (
                         <View style={styles.desktopDropdownOverlayContainer}>
                           {ROLES_LIST.map((r) => (
                             <TouchableOpacity
-                              key={r.value} // Fixed missing key injection crash factor
-                              style={[
-                                styles.desktopDropdownItemBtn,
-                                role === r.value && {
-                                  backgroundColor: COLORS.background,
-                                },
-                              ]}
+                              key={r.value}
+                              style={[styles.desktopDropdownItemBtn, role === r.value && { backgroundColor: COLORS.background }]}
                               onPress={() => handleSelectRole(r.value)}
                             >
-                              <Text
-                                style={[
-                                  styles.desktopDropdownItemText,
-                                  role === r.value && {
-                                    color: COLORS.primary,
-                                    fontWeight: "700",
-                                  },
-                                ]}
-                              >
+                              <Text style={[styles.desktopDropdownItemText, role === r.value && { color: COLORS.primary, fontWeight: "700" }]}>
                                 {r.label}
                               </Text>
                             </TouchableOpacity>
@@ -474,28 +460,43 @@ export default function RegisterScreen() {
                       activeOpacity={0.8}
                       onPress={() => setShowRoleModal(true)}
                     >
-                      <Text style={styles.dropdownSelectorTriggerText}>
-                        {currentRoleLabel}
-                      </Text>
-                      <Feather
-                        name="chevron-down"
-                        size={18}
-                        color={COLORS.textLight}
-                      />
+                      <Text style={styles.dropdownSelectorTriggerText}>{currentRoleLabel}</Text>
+                      <Feather name="chevron-down" size={18} color={COLORS.textLight} />
                     </TouchableOpacity>
                   )}
                 </View>
 
-                {/* Wake Up Time Row */}
+                {/* Guardian Details Row Sub Section */}
+                <View style={styles.formSplitInlineFlexRow}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <Text style={styles.labelTitleField}>Guardian Name</Text>
+                    <TextInput
+                      style={styles.textInputBoxComponentPlain}
+                      placeholder="Name"
+                      placeholderTextColor="#94a3b8"
+                      value={guardianName}
+                      onChangeText={setGuardianName}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.labelTitleField}>Guardian Phone</Text>
+                    <TextInput
+                      style={styles.textInputBoxComponentPlain}
+                      placeholder="10 digit number"
+                      placeholderTextColor="#94a3b8"
+                      keyboardType="number-pad"
+                      maxLength={10}
+                      value={guardianPhoneNo}
+                      onChangeText={setGuardianPhoneNo}
+                    />
+                  </View>
+                </View>
+
                 <View style={styles.inputContainerStack}>
                   <Text style={styles.labelTitleField}>Wake Up Time</Text>
                   <View style={styles.inputFieldIconWrapper}>
-                    <Feather
-                      name="clock"
-                      size={18}
-                      color={COLORS.textLight}
-                      style={styles.inputPositionIcon}
-                    />
+                    <Feather name="clock" size={18} color={COLORS.textLight} style={styles.inputPositionIcon} />
                     <TextInput
                       style={styles.textInputBoxComponent}
                       placeholder="06:00"
@@ -506,11 +507,8 @@ export default function RegisterScreen() {
                   </View>
                 </View>
 
-                {/* Custom Notes Block */}
                 <View style={styles.inputContainerStack}>
-                  <Text style={styles.labelTitleField}>
-                    Others / Custom Notes
-                  </Text>
+                  <Text style={styles.labelTitleField}>Others / Custom Notes</Text>
                   <TextInput
                     style={styles.textInputBoxComponentPlain}
                     placeholder="E.g., tracking preferences or goals"
@@ -520,90 +518,32 @@ export default function RegisterScreen() {
                   />
                 </View>
 
-                <TouchableOpacity
-                  style={styles.ctaActionButton}
-                  onPress={handleSubmitWithOtp}
-                  disabled={isLoading}
-                >
+                <TouchableOpacity style={styles.ctaActionButton} onPress={handleSubmitWithOtp} disabled={isLoading}>
                   {isLoading ? (
                     <ActivityIndicator color="white" size="small" />
                   ) : (
-                    <Text style={styles.ctaTextButton}>
-                      Complete Registration
-                    </Text>
+                    <Text style={styles.ctaTextButton}>Complete Registration</Text>
                   )}
                 </TouchableOpacity>
               </Animated.View>
             )}
 
-            {/* --- STEP 3 LAYOUT: CELEBRATION FINISH SCREEN (Dynamically Displays Back To Login) --- */}
             {step === "SUCCESS" && (
-              <Animated.View
-                entering={ZoomIn.duration(500)}
-                style={{ alignItems: "center", paddingVertical: 20 }}
-              >
+              <Animated.View entering={ZoomIn.duration(500)} style={{ alignItems: "center", paddingVertical: 20 }}>
                 <View style={styles.sparkSuccessOuterWrapper}>
-                  <View
-                    style={[
-                      styles.ribbonGraphicItem,
-                      {
-                        backgroundColor: "#FFD700",
-                        transform: [{ rotate: "15deg" }],
-                        top: -10,
-                        left: -20,
-                      },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.ribbonGraphicItem,
-                      {
-                        backgroundColor: "#FF6B6B",
-                        transform: [{ rotate: "-35deg" }],
-                        bottom: -10,
-                        right: -15,
-                      },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.ribbonGraphicItem,
-                      {
-                        backgroundColor: "#4DABF7",
-                        transform: [{ rotate: "45deg" }],
-                        top: 40,
-                        right: -30,
-                      },
-                    ]}
-                  />
-
+                  <View style={[styles.ribbonGraphicItem, { backgroundColor: "#FFD700", transform: [{ rotate: "15deg" }], top: -10, left: -20 }]} />
+                  <View style={[styles.ribbonGraphicItem, { backgroundColor: "#FF6B6B", transform: [{ rotate: "-35deg" }], bottom: -10, right: -15 }]} />
+                  <View style={[styles.ribbonGraphicItem, { backgroundColor: "#4DABF7", transform: [{ rotate: "45deg" }], top: 40, right: -30 }]} />
                   <View style={styles.sparkSuccessInnerCircle}>
                     <Feather name="check-circle" size={48} color="white" />
                   </View>
                 </View>
 
-                {/* Updated dynamically to show current registered name */}
-                <Text style={styles.congratsHeadingTitle}>
-                  Awesome, {name || "User"}!
-                </Text>
-                <Text style={styles.congratsBodyStatement}>
-                  You registered successfully! Your account credentials matrix
-                  structure is active.
-                </Text>
+                <Text style={styles.congratsHeadingTitle}>Awesome, {name || "User"}!</Text>
+                <Text style={styles.congratsBodyStatement}>You registered successfully! Your account is active.</Text>
 
-                <Pressable
-                  onPress={() => router.replace("/login")}
-                  style={({ pressed }) => [
-                    styles.backToLoginCTA,
-                    { transform: [{ scale: pressed ? 0.98 : 1 }] },
-                  ]}
-                >
-                  <Feather
-                    name="log-in"
-                    size={18}
-                    color="white"
-                    style={{ marginRight: 8 }}
-                  />
+                <Pressable onPress={() => router.replace("/login")} style={({ pressed }) => [styles.backToLoginCTA, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
+                  <Feather name="log-in" size={18} color="white" style={{ marginRight: 8 }} />
                   <Text style={styles.backToLoginCTAText}>Back to Login</Text>
                 </Pressable>
               </Animated.View>
@@ -612,52 +552,23 @@ export default function RegisterScreen() {
         </View>
       </ScrollView>
 
-      {/* MOBILE BOTTOM MODAL SHEET FOR ROLE PICKER */}
-      <Modal
-        visible={showRoleModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowRoleModal(false)}
-      >
-        <Pressable
-          style={styles.modalBlurOverlayDimmer}
-          onPress={() => setShowRoleModal(false)}
-        >
+      <Modal visible={showRoleModal} transparent animationType="slide" onRequestClose={() => setShowRoleModal(false)}>
+        <Pressable style={styles.modalBlurOverlayDimmer} onPress={() => setShowRoleModal(false)}>
           <View style={styles.modalInteractiveSheetContainer}>
             <View style={styles.modalHeaderIndicatorBar} />
-            <Text style={styles.modalMainTitleHeading}>
-              Select Your Account Role
-            </Text>
-            <ScrollView
-              style={{ maxHeight: 300 }}
-              showsVerticalScrollIndicator={false}
-            >
+            <Text style={styles.modalMainTitleHeading}>Select Your Account Role</Text>
+            <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
               {ROLES_LIST.map((item) => (
                 <TouchableOpacity
                   key={item.value}
                   activeOpacity={0.7}
-                  style={[
-                    styles.modalItemTileButton,
-                    role === item.value && {
-                      backgroundColor: COLORS.background,
-                    },
-                  ]}
+                  style={[styles.modalItemTileButton, role === item.value && { backgroundColor: COLORS.background }]}
                   onPress={() => handleSelectRole(item.value)}
                 >
-                  <Text
-                    style={[
-                      styles.modalItemTileText,
-                      role === item.value && {
-                        color: COLORS.primary,
-                        fontWeight: "700",
-                      },
-                    ]}
-                  >
+                  <Text style={[styles.modalItemTileText, role === item.value && { color: COLORS.primary, fontWeight: "700" }]}>
                     {item.label}
                   </Text>
-                  {role === item.value && (
-                    <Feather name="check" size={18} color={COLORS.primary} />
-                  )}
+                  {role === item.value && <Feather name="check" size={18} color={COLORS.primary} />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -684,12 +595,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     ...Platform.select({
-      ios: {
-        shadowColor: "#0F172A",
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.08,
-        shadowRadius: 24,
-      },
+      ios: { shadowColor: "#0F172A", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.08, shadowRadius: 24 },
       android: { elevation: 6 },
     }),
   },
@@ -713,15 +619,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: { elevation: 4 },
-    }),
   },
   mainTitleText: {
     fontSize: 28,
@@ -767,6 +664,7 @@ const styles = StyleSheet.create({
     paddingRight: 16,
     color: COLORS.textDark,
     fontSize: 15,
+    width: "100%",
   },
   textInputBoxComponentPlain: {
     backgroundColor: COLORS.background,
@@ -777,6 +675,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     color: COLORS.textDark,
     fontSize: 15,
+    width: "100%",
+  },
+  textInputBoxComponentPlainPassword: {
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingLeft: 16,
+    paddingRight: 48,
+    color: COLORS.textDark,
+    fontSize: 15,
+    width: "100%",
+  },
+  passwordVisibilityIconToggle: {
+    position: "absolute",
+    right: 16,
+    padding: 4,
+    zIndex: 5,
   },
   dropdownSelectorTrigger: {
     flexDirection: "row",
@@ -804,11 +721,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     padding: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
     zIndex: 999,
   },
   desktopDropdownItemBtn: {
@@ -827,15 +739,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-      },
-      android: { elevation: 3 },
-    }),
   },
   ctaTextButton: {
     color: "white",
@@ -861,18 +764,24 @@ const styles = StyleSheet.create({
   otpGridRowFlex: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 12,
+    alignItems: "center",
+    marginVertical: 14,
+    width: "100%",
   },
   otpSingleInputBox: {
     width: "14%",
-    aspectRatio: 0.9,
-    backgroundColor: COLORS.background,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    fontSize: 20,
-    fontWeight: "800",
-    color: COLORS.textDark,
+    height: 50, // Fixed physical vertical box grid boundary logic
+    backgroundColor: "#F8FAFC", 
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1", 
+    borderRadius: 16, 
+    fontSize: 24, 
+    fontWeight: "700",
+    color: "#1E293B",
+    padding: 0, // Eliminates automatic system vertical shifting layout anomalies
+    textAlign: "center",
+    includeFontPadding: false, // Disables native font layout bugs inside Android devices
+    textAlignVertical: "center",
   },
   clipboardShortcutAction: {
     flexDirection: "row",
@@ -886,7 +795,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   formSplitInlineFlexRow: {
-    flexDirection: "row",
+    flexDirection: "column",
     marginBottom: 20,
   },
   inlineOptionSelectorRow: {
@@ -906,15 +815,6 @@ const styles = StyleSheet.create({
   },
   selectorPillBtnActive: {
     backgroundColor: "white",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-      },
-      android: { elevation: 2 },
-    }),
   },
   selectorPillText: {
     fontSize: 12,
@@ -940,15 +840,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     zIndex: 3,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#22C55E",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-      },
-      android: { elevation: 6 },
-    }),
   },
   ribbonGraphicItem: {
     position: "absolute",
@@ -982,15 +873,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 6,
-      },
-      android: { elevation: 3 },
-    }),
   },
   backToLoginCTAText: {
     color: "white",

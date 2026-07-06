@@ -22,15 +22,14 @@ import { rootApi } from "../utils/axiosInstance";
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const isDesktop = screenWidth >= 768;
 
-// ✅ FIXED: Color configurations fully synchronized with premium brand image aesthetics
 const COLORS = {
-  background: "#FAF9F5",      // Clean minimalist crisp warm cream background tone
+  background: "#FAF9F5",      
   cardBg: "rgba(255, 255, 255, 0.90)",  
-  textDark: "#11231D",       // Strong dark slate accent green text header tone
-  textLight: "#576860",      // Smooth soothing mid-tone slate green for subtitles
-  primary: "#336956",        // Brand Deep Emerald Green focus color from panels
-  secondary: "#E09643",      // Warm balanced progress amber variant from gauge fill
-  darkSienna: "#1B4235",     // Luxury dense forest green boundary tint
+  textDark: "#11231D",       
+  textLight: "#576860",      
+  primary: "#336956",        
+  secondary: "#E09643",      
+  darkSienna: "#1B4235",     
   border: "rgba(51, 105, 86, 0.08)",
   chartTrack: "rgba(51, 105, 86, 0.06)"
 };
@@ -43,6 +42,7 @@ interface ActivityLast7DaysResponse {
 interface DayTrend {
   dayName: string;
   displayDay: string;
+  displayDate: string; // Added to capture date underneath day label
   score: number;
 }
 
@@ -69,7 +69,12 @@ interface RecentActivityLog {
   scoreChange: number;
 }
 
-function ChartBarItem({ score, label }: { score: number; label: string }) {
+interface MostRecentActivityResponse {
+  mostUsedDrain: string;
+  mostUsedRecovery: string;
+}
+
+function ChartBarItem({ score, label, date }: { score: number; label: string; date: string }) {
   const barHeight = useSharedValue(0);
 
   useEffect(() => {
@@ -89,6 +94,8 @@ function ChartBarItem({ score, label }: { score: number; label: string }) {
         />
       </View>
       <Text style={styles.chartColumnLabelDayText}>{label}</Text>
+      {/* ✅ FIXED: Progress bar data layout matches requested date text element addition */}
+      <Text style={styles.chartColumnLabelDateText}>{date}</Text>
     </View>
   );
 }
@@ -100,7 +107,12 @@ export default function TrendsScreen() {
   const [peakScore, setPeakScore] = useState(0);
   const [weeklyAvg, setWeeklyAvg] = useState(0);
 
-  // Stats Counters State
+  // ✅ FIXED: New state management setup for handling most recent activities payload mapping
+  const [mostRecentActivity, setMostRecentActivity] = useState<MostRecentActivityResponse>({
+    mostUsedDrain: "",
+    mostUsedRecovery: ""
+  });
+
   const [statsData, setStatsData] = useState({
     totalActivities: 0,
     drainActivities: 0,
@@ -108,7 +120,6 @@ export default function TrendsScreen() {
     recentLogsCount: 0,
   });
 
-  // Dynamic Banner State
   const [banner, setBanner] = useState<BannerData | null>(null);
 
   const scrollY = useSharedValue(0);
@@ -152,6 +163,15 @@ export default function TrendsScreen() {
 
       const formattedTrends: DayTrend[] = apiData.map((item) => {
         const parsedDate = new Date(item.date + "T00:00:00");
+        
+        let subDateLabel = "";
+        if (!isNaN(parsedDate.getTime())) {
+          const year = parsedDate.getFullYear();
+          const month = parsedDate.getMonth() + 1;
+          const day = parsedDate.getDate();
+          subDateLabel = `${day}/${month}`;
+        }
+
         return {
           dayName: !isNaN(parsedDate.getTime())
             ? fullDaysOfWeek[parsedDate.getDay()]
@@ -159,6 +179,7 @@ export default function TrendsScreen() {
           displayDay: !isNaN(parsedDate.getTime())
             ? daysOfWeek[parsedDate.getDay()]
             : item.date,
+          displayDate: subDateLabel,
           score: Math.min(Math.max(item.totalPercentage, 0), 100),
         };
       });
@@ -170,6 +191,7 @@ export default function TrendsScreen() {
         recoveryActRes,
         recentLogsRes,
         bannerRes,
+        mostRecentRes, // Fetching from the specified layout endpoint matrix safely
       ] = await Promise.all([
         rootApi.get<ApiActivityItem[]>("/api/user/getActivities"),
         rootApi.get<ApiActivityItem[]>("/api/user/getActivities", {
@@ -180,6 +202,7 @@ export default function TrendsScreen() {
         }),
         rootApi.get<RecentActivityLog[]>("/api/user/recent-activities"),
         rootApi.get<BannerData[]>("/api/banner/all"),
+        rootApi.get<MostRecentActivityResponse>("/api/user/mostRecentActivity"),
       ]);
 
       setStatsData({
@@ -188,6 +211,11 @@ export default function TrendsScreen() {
         recoveryActivities: recoveryActRes.data?.length || 0,
         recentLogsCount: recentLogsRes.data?.length || 0,
       });
+
+      // ✅ FIXED: Sets variables tracking mapped objects directly
+      if (mostRecentRes.data) {
+        setMostRecentActivity(mostRecentRes.data);
+      }
 
       if (bannerRes.data && bannerRes.data.length > 0) {
         setBanner(bannerRes.data[0]);
@@ -250,7 +278,6 @@ export default function TrendsScreen() {
             Track how your activities shape psychological wellbeing over the week.
           </Text>
 
-          {/* ✅ FIXED: StatCards grid structure configured to show exactly 2 items per row natively */}
           <View style={styles.statsCardGridRowContainer}>
             <View style={[styles.premiumStatCard, { borderLeftColor: COLORS.primary }]}>
               <View style={[styles.statIconBadgeCircle, { backgroundColor: "rgba(51, 105, 86, 0.08)" }]}>
@@ -328,19 +355,27 @@ export default function TrendsScreen() {
             </View>
           )}
 
+          {/* ✅ FIXED: Layout handles custom indicator colors matching design structure guidelines explicitly */}
           <View style={styles.analyticsHighlightsRow}>
-            <View style={[styles.insightMiniCard, { borderLeftColor: COLORS.primary }]}>
-              <Feather name="zap" size={16} color={COLORS.primary} />
-              <Text style={[styles.insightMiniValue, { color: COLORS.textDark }]}>+{peakScore}%</Text>
+            {/* Left Box: Most Used Drain Card Frame */}
+            <View style={[styles.insightMiniCard, { borderLeftColor: "#DC2626" }]}>
+              <Feather name="trending-down" size={18} color="#DC2626" />
+              <Text style={[styles.insightMiniValue, { color: COLORS.textDark }]}>
+                {mostRecentActivity.mostUsedDrain || "None"}
+              </Text>
               <Text style={[styles.insightMiniLabel, { color: COLORS.textLight }]}>
-                Highest Recovery Surge
+                Most Used Drain
               </Text>
             </View>
+
+            {/* Right Box: Most Used Recovery Card Frame */}
             <View style={[styles.insightMiniCard, { borderLeftColor: COLORS.secondary }]}>
-              <Feather name="activity" size={16} color={COLORS.secondary} />
-              <Text style={[styles.insightMiniValue, { color: COLORS.textDark }]}>{weeklyAvg}%</Text>
+              <Feather name="trending-up" size={18} color={COLORS.secondary} />
+              <Text style={[styles.insightMiniValue, { color: COLORS.textDark }]}>
+                {mostRecentActivity.mostUsedRecovery || "None"}
+              </Text>
               <Text style={[styles.insightMiniLabel, { color: COLORS.textLight }]}>
-                Weekly Median Average
+                Most Used Recovery
               </Text>
             </View>
           </View>
@@ -353,6 +388,7 @@ export default function TrendsScreen() {
                   key={index}
                   score={item.score}
                   label={item.displayDay}
+                  date={item.displayDate} // Passes downstream to append text underneath
                 />
               ))}
             </View>
@@ -468,7 +504,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 24,
   },
-  // ✅ FIXED: Configured with flexWrap and row directions to stack cards exactly 2 per row
   statsCardGridRowContainer: {
     width: "100%",
     flexDirection: "row",
@@ -478,7 +513,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   premiumStatCard: {
-    width: isDesktop ? "48.5%" : "48%", // Forces exact 2 items split mapping across columns natively
+    width: isDesktop ? "48.5%" : "48%", 
     minWidth: 140,
     flexDirection: "row",
     alignItems: "center",
@@ -588,7 +623,7 @@ const styles = StyleSheet.create({
     }),
   },
   insightMiniValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "900",
     marginTop: 6,
   },
@@ -627,7 +662,7 @@ const styles = StyleSheet.create({
   },
   chartBarCapsuleTrackBg: {
     width: 26,
-    height: 160,
+    height: 140,
     backgroundColor: COLORS.chartTrack,
     borderRadius: 14,
     justifyContent: "flex-end",
@@ -640,9 +675,16 @@ const styles = StyleSheet.create({
   },
   chartColumnLabelDayText: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: COLORS.textDark,
     fontWeight: "700",
     marginTop: 10,
+  },
+  // ✅ FIXED: Subtitle style properties configuration added for rendering the date below day labels safely
+  chartColumnLabelDateText: {
+    fontSize: 10,
+    color: COLORS.textLight,
+    fontWeight: "500",
+    marginTop: 2,
   },
   listGlassContainerCard: {
     backgroundColor: COLORS.cardBg,

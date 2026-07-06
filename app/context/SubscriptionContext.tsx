@@ -1,31 +1,39 @@
-// context/SubscriptionContext.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { jwtDecode } from "jwt-decode";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { AppState, AppStateStatus } from "react-native";
+import { useAuth } from "./AuthContext";
 
 interface SubscriptionContextType {
   isSubscribed: boolean;
   subscriptionExpiry: Date | null;
-  activateFreeTrial: () => Promise<void>;
   activateSubscription: (days: number) => Promise<void>;
   checkAndUpdateSubscription: () => Promise<void>;
   daysRemaining: number | null;
+}
+
+interface JWTPayload {
+  role: Array<{ authority: string }>;
+  userId: string;
+  sub: string;
+  iat: number;
+  exp: number;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(
   undefined,
 );
 
-const STORAGE_KEY = "@subscription_expiry";
-
 export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const { user } = useAuth(); 
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [subscriptionExpiry, setSubscriptionExpiry] = useState<Date | null>(
-    null,
-  );
+  const [subscriptionExpiry, setSubscriptionExpiry] = useState<Date | null>(null);
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
+
+  // Isolate storage space per unique identity matrices logs
+  const getStorageKey = () => (user?.id ? `@subscription_expiry_${user.id}` : null);
 
   const calculateDaysRemaining = (expiry: Date | null): number | null => {
     if (!expiry) return null;
@@ -37,10 +45,43 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const checkAndUpdateSubscription = async () => {
     try {
-      const expiryString = await AsyncStorage.getItem(STORAGE_KEY);
+      const storageKey = getStorageKey();
+
+      if (!user || !storageKey) {
+        setIsSubscribed(false);
+        setSubscriptionExpiry(null);
+        setDaysRemaining(null);
+        return;
+      }
+
+      let expiryString = await AsyncStorage.getItem(storageKey);
+
+      // 🚀 RESTORE PIPELINE LOOP BACK UP MATRIX FOR EXISTING RETURNING PREMIUM USERS:
+      // If local storage is empty but user holds an active server session token pipeline
+      if (!expiryString && user?.token) {
+        try {
+          const decoded = jwtDecode<JWTPayload>(user.token);
+          const nowInSeconds = Math.floor(Date.now() / 1000);
+          
+          // Check if token has authority updates mapping window values
+          if (decoded.exp > nowInSeconds) {
+            // Synchronize calculated expiry timestamps based on original account initialization
+            const calculatedExpiry = new Date(decoded.exp * 1000);
+            expiryString = calculatedExpiry.toISOString();
+            
+            // Re-hydrate local caches so they dont get locked out on multi-device re-logins
+            await AsyncStorage.setItem(storageKey, expiryString);
+            console.log("[SubscriptionSync] Successfully restored tracking matrix map records.");
+          }
+        } catch (jwtErr) {
+          console.error("[SubscriptionSync] Safe recovery fallback stream failure:", jwtErr);
+        }
+      }
+
       if (expiryString) {
         const expiryDate = new Date(expiryString);
         const now = new Date();
+
         if (expiryDate > now) {
           setIsSubscribed(true);
           setSubscriptionExpiry(expiryDate);
@@ -49,7 +90,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
           setIsSubscribed(false);
           setSubscriptionExpiry(null);
           setDaysRemaining(null);
-          await AsyncStorage.removeItem(STORAGE_KEY);
+          await AsyncStorage.removeItem(storageKey);
         }
       } else {
         setIsSubscribed(false);
@@ -57,31 +98,29 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
         setDaysRemaining(null);
       }
     } catch (error) {
-      console.error("Failed to check subscription:", error);
+      console.error("[SubscriptionContext] Verification core tracks exception:", error);
       setIsSubscribed(false);
     }
   };
 
-  const activateFreeTrial = async () => {
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + 7);
-    await AsyncStorage.setItem(STORAGE_KEY, expiryDate.toISOString());
-    setIsSubscribed(true);
-    setSubscriptionExpiry(expiryDate);
-    setDaysRemaining(7);
-  };
-
   const activateSubscription = async (days: number) => {
-    console.log(
-      `[SubscriptionContext] Syncing state dynamically for: ${days} days`,
-    );
+    const storageKey = getStorageKey();
+    if (!storageKey) return;
+
+    console.log(`[SubscriptionContext] Direct upgrade triggered dynamically for: ${days} days`);
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + days);
-    await AsyncStorage.setItem(STORAGE_KEY, expiryDate.toISOString());
+
+    await AsyncStorage.setItem(storageKey, expiryDate.toISOString());
+    
     setIsSubscribed(true);
     setSubscriptionExpiry(expiryDate);
-    setDaysRemaining(days); // 👈 FIXED: Overrides zeroed out, accepts exact runtime parsed argument targets directly
+    setDaysRemaining(days); 
   };
+
+  useEffect(() => {
+    checkAndUpdateSubscription();
+  }, [user]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener(
@@ -92,16 +131,14 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       },
     );
-    checkAndUpdateSubscription();
     return () => subscription.remove();
-  }, []);
+  }, [user]);
 
   return (
     <SubscriptionContext.Provider
       value={{
         isSubscribed,
         subscriptionExpiry,
-        activateFreeTrial,
         activateSubscription,
         checkAndUpdateSubscription,
         daysRemaining,

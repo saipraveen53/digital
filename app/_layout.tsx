@@ -1,14 +1,16 @@
 // app/_layout.tsx
 import { Slot } from 'expo-router';
-import { ActivityIndicator, Text, View } from 'react-native';
+import React from 'react';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
+//import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
 import "./globals.css";
 
-// Simple loading component inline to avoid circular imports
+// Loading component
 function LoadingSpinner() {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5DC' }}>
@@ -17,31 +19,35 @@ function LoadingSpinner() {
     </View>
   );
 }
-
+const GoogleOAuthProvider =
+  Platform.OS === 'web'
+    ? require('@react-oauth/google').GoogleOAuthProvider
+    : ({ children }: any) => <>{children}</>;
 function RootLayoutContent() {
-  const { user, isLoading } = useAuth();
+  const { isInitializing } = useAuth(); 
 
-  // Show loading while auth is initializing
-  if (isLoading) {
+  if (isInitializing) {
     return <LoadingSpinner />;
   }
 
-  // If user is not logged in, show login screen
-  // If user is logged in, show the app
   return <Slot />;
 }
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <SubscriptionProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <SafeAreaProvider>
-            <RootLayoutContent />
-            <Toast />
-          </SafeAreaProvider>
-        </GestureHandlerRootView>
-      </SubscriptionProvider>
-    </AuthProvider>
+    <React.StrictMode>
+      <GoogleOAuthProvider clientId="341709776135-fl0c2cfi1dffact5atc5snmkh4ev85fh.apps.googleusercontent.com">
+        <AuthProvider>
+          <SubscriptionProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <SafeAreaProvider>
+                <RootLayoutContent />
+                <Toast />
+              </SafeAreaProvider>
+            </GestureHandlerRootView>
+          </SubscriptionProvider>
+        </AuthProvider>
+      </GoogleOAuthProvider>
+    </React.StrictMode>
   );
 }

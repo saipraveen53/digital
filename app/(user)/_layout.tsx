@@ -7,11 +7,13 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
+  Image,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -22,24 +24,17 @@ import {
   useSubscription,
 } from "../context/SubscriptionContext";
 
-// Explicit Burnt Sienna multi-color design setup matrix matching image preferences
-// Explicit Premium Emerald Green multi-color design setup matrix matching image preferences
 const COLORS = {
-  primary: "#336956",         // Brand Deep Emerald Green color from website panels
-  secondary: "#E09643",       // Warm balanced progress amber variant from gauge fill
-  darkSienna: "#1B4235",      // Dark forest green block gradient step
-  background: "#FAF9F5",      // Clean minimalist crisp warm cream background tone
+  primary: "#336956",         
+  secondary: "#E09643",       
+  darkSienna: "#1B4235",      
+  background: "#FAF9F5",      
   border: "rgba(51, 105, 86, 0.08)",
   cardBg: "rgba(255, 255, 255, 0.90)",
-
-  // Custom explicit Green colors for Active navigation states & numeric indicators
   excellentGreen: "#336956",
   excellentBg: "rgba(51, 105, 86, 0.08)",
-
-  textDark: "#11231D",        // Strong dark slate accent green text header tone
-  textLight: "#576860",       // Smooth soothing mid-tone slate green for subtitles
-  
-  // Translucent dynamic glass backgrounds inheriting master premium emerald tones
+  textDark: "#11231D",        
+  textLight: "#576860",       
   sidebarGlassBg: [
     "rgba(255, 255, 255, 0.95)",
     "rgba(250, 249, 245, 0.90)",
@@ -48,7 +43,7 @@ const COLORS = {
   mobileTabGlassBg: ["rgba(255, 255, 255, 0.98)", "rgba(250, 249, 245, 0.94)"],
   logoutBorder: "rgba(220, 38, 38, 0.15)",
   logoutIconBg: "rgba(220, 38, 38, 0.06)",
-  logoutText: "#DC2626",      // Standard alert red for clean secure destructive logout trigger
+  logoutText: "#DC2626",      
 };
 
 const NAVIGATION_ITEMS = [
@@ -85,7 +80,7 @@ const NAVIGATION_ITEMS = [
     gradient: ["#576860", "#11231D"],
   },
   {
-    name: "Settings",
+    name: "View Profile",
     path: "/settings",
     icon: "settings",
     bg: "rgba(51, 105, 86, 0.08)",
@@ -99,8 +94,7 @@ function DesktopSidebar({
   setIsCollapsed,
 }: {
   isCollapsed: boolean;
-  setIsCollapsed: (val: boolean) => void;
-}) {
+  setIsCollapsed: (val: boolean) => void; }) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
@@ -120,7 +114,6 @@ function DesktopSidebar({
   };
 
   const sidebarWidth = useRef(new Animated.Value(310)).current;
-
   useEffect(() => {
     Animated.timing(sidebarWidth, {
       toValue: isCollapsed ? 90 : 310,
@@ -197,7 +190,6 @@ function DesktopSidebar({
                 </Text>
               </LinearGradient>
             )}
-
             <Pressable
               onPress={() => setIsCollapsed(!isCollapsed)}
               style={({ pressed }) => ({
@@ -216,7 +208,6 @@ function DesktopSidebar({
               />
             </Pressable>
           </View>
-
           {!isCollapsed && (
             <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
               <View
@@ -262,7 +253,6 @@ function DesktopSidebar({
               </View>
             </View>
           )}
-
           <View style={{ paddingHorizontal: 16, gap: 10, width: "100%" }}>
             {filteredNavItems.length === 0 ? (
               <Text
@@ -418,7 +408,6 @@ function DesktopSidebar({
             )}
           </View>
         </View>
-
         <View style={{ paddingHorizontal: 16, width: "100%" }}>
           <Pressable
             onPress={logout}
@@ -521,9 +510,8 @@ function MobileBottomTabs() {
       {NAVIGATION_ITEMS.map((item) => {
         const isActive = pathname === item.path;
         const isLocked = !isSubscribed && item.path !== "/home";
-        
         const activeColor = item.name === "Logs" ? COLORS.excellentGreen : COLORS.primary;
-
+        
         return (
           <Pressable
             key={item.path}
@@ -585,7 +573,7 @@ function LayoutContent() {
   const isDesktop = width >= 768;
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const insets = useSafeAreaInsets();
-  
+  const router = useRouter();
   const scrollYRef = useRef(new Animated.Value(0)).current;
 
   const backgroundBall1 = {
@@ -599,7 +587,6 @@ function LayoutContent() {
       },
     ],
   };
-
   const backgroundBall2 = {
     transform: [
       {
@@ -611,7 +598,6 @@ function LayoutContent() {
       },
     ],
   };
-
   const backgroundBall3 = {
     transform: [
       {
@@ -630,30 +616,35 @@ function LayoutContent() {
         <Animated.View style={[styles.blurredLiquidSphere1, backgroundBall1]} />
         <Animated.View style={[styles.blurredLiquidSphere2, backgroundBall2]} />
         <Animated.View style={[styles.blurredLiquidSphere3, backgroundBall3]} />
-
         <DesktopSidebar
           isCollapsed={isSidebarCollapsed}
           setIsCollapsed={setIsSidebarCollapsed}
         />
-        <View style={{ flex: 1, backgroundColor: "transparent", zIndex: 3 }}>
+        <View style={{ flex: 1, backgroundColor: "transparent", zIndex: 3, position: "relative" }}>
           <Slot />
+          
+          {/* DESKTOP FLOATING MOON BUTTON */}
+          <TouchableOpacity
+            style={styles.floatingMoonButton}
+            activeOpacity={0.85}
+            onPress={() => router.push("/sleepFirstAid")}
+          >
+            <Feather name="moon" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
       </View>
     );
   }
 
   return (
-    // FIX: Added top edge inset configuration handling using safe structural wrapper inside mobile tracks
-    <SafeAreaView 
-      edges={["top", "left", "right"]} 
-      style={{ flex: 1, backgroundColor: COLORS.background }}
+    <SafeAreaView
+       edges={["top", "left", "right"]}
+       style={{ flex: 1, backgroundColor: COLORS.background }}
     >
       <View style={{ flex: 1, flexDirection: "column", position: "relative" }}>
-        {/* Mobile anti-directional backdrop orbs layer stack */}
         <Animated.View style={[styles.blurredLiquidSphere1, backgroundBall1]} />
         <Animated.View style={[styles.blurredLiquidSphere2, backgroundBall2]} />
         <Animated.View style={[styles.blurredLiquidSphere3, backgroundBall3]} />
-
         <View
           style={{
             flex: 1,
@@ -663,6 +654,23 @@ function LayoutContent() {
         >
           <Slot />
         </View>
+        
+        {/* MOBILE FLOATING MOON BUTTON (FLOATS JUST ABOVE THE TAB BAR ON THE RIGHT) */}
+        <TouchableOpacity
+          style={[
+            styles.floatingMoonButton, 
+            { bottom: insets.bottom > 0 ? insets.bottom + 75 : 95 }
+          ]}
+          activeOpacity={0.85}
+          onPress={() => router.push("/sleepFirstAid")}
+        >
+             <Image
+                source={require("../../assets/images/cloude1.png")}
+                className="w-20 h-20 rounded-[12px]"
+                resizeMode="cover"
+              />
+        </TouchableOpacity>
+
         <MobileBottomTabs />
       </View>
     </SafeAreaView>
@@ -675,7 +683,6 @@ export default function UserLayout() {
   if (!user || !user.isLoggedIn) {
     return <Redirect href="/login" />;
   }
-
   if (user.role !== "user") {
     return <Redirect href="/(admin)/dashboard" />;
   }
@@ -730,5 +737,32 @@ const styles = StyleSheet.create({
       web: { filter: "blur(70px)" },
     }),
     zIndex: 1,
+  },
+  // NEW FAB STYLE ADDED MATCHING IMAGE SPECIFICATIONS
+  floatingMoonButton: {
+    position: "absolute",
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#3b20e9", // Calming violet-blue shade matching image color
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 99,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#5B46E5",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 8,
+      },
+      web: {
+        boxShadow: "0px 6px 20px rgba(91, 70, 229, 0.4)",
+        bottom: 30,
+      }
+    }),
   },
 });

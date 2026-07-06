@@ -295,7 +295,7 @@ export default function Subscriptions() {
                           </View>
                           <View className="flex-row items-center gap-2">
                             <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: planColor }} />
-                            <Text className="text-slate-600 text-xs md:text-sm">AI-powered recovery tips</Text>
+                            <Text className="text-slate-600 text-xs md:text-sm">Customized recovery tips</Text>
                           </View>
                           <View className="flex-row items-center gap-2">
                             <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: planColor }} />

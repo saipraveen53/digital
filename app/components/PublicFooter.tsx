@@ -1,7 +1,6 @@
 import { FontAwesome } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-import { Droplets } from 'lucide-react-native';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, Text, View, useWindowDimensions } from 'react-native';
 
 export default function PublicFooter() {
   const currentYear = new Date().getFullYear();
@@ -17,9 +16,11 @@ export default function PublicFooter() {
           
           <View style={{ width: isMobile ? '100%' : '40%', marginBottom: isMobile ? 20 : 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-              <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: '#3E7B6A', alignItems: 'center', justifyContent: 'center' }}>
-                <Droplets size={26} color="#ffffff" />
-              </View>
+               <Image
+                   source={require("../../assets/images/logo1.jpeg")}
+                   className="w-20 h-20 rounded-[12px]"
+                   resizeMode="cover"
+                 />
               <View style={{ justifyContent: 'center' }}>
                 <Text style={{ fontFamily: "'DM Serif Display', serif", fontSize: 28, color: 'white', lineHeight: 30 }}>
                   Wellbeing

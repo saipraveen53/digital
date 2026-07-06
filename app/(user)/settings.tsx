@@ -1,5 +1,6 @@
 // app/(user)/settings.tsx
 import { Feather } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -27,20 +28,18 @@ import { rootApi } from '../utils/axiosInstance';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isDesktop = screenWidth >= 1024;
 
-// ✅ FIXED: Updated to premium emerald green color theme matching website images verbatim
 const COLORS = {
-  background: '#FAF9F5',      // Clean minimalist crisp warm cream background tone
-  cardBg: 'rgba(255, 255, 255, 0.90)', 
-  textDark: '#11231D',       // Strong dark slate accent green text header tone
-  textLight: '#576860',      // Smooth soothing mid-tone slate green for subtitles
-  primary: '#336956',        // Brand Deep Emerald Green focus color from panels
-  secondary: '#E09643',      // Warm balanced progress amber variant from gauge fill
-  darkSienna: '#1B4235',     // Luxury dense forest green boundary tint
+  background: '#FAF9F5',
+  cardBg: 'rgba(255, 255, 255, 0.90)',
+  textDark: '#11231D',
+  textLight: '#576860',
+  primary: '#336956',
+  secondary: '#E09643',
+  darkSienna: '#1B4235',
   border: 'rgba(51, 105, 86, 0.08)',
   accentBg: 'rgba(51, 105, 86, 0.06)',
 };
 
-// API Response Structures
 interface UserProfileData {
   userId: string;
   name: string;
@@ -49,32 +48,44 @@ interface UserProfileData {
   gender: string;
   primaryRole: string;
   wakeUpTime: string;
+  phoneNo: string;
+  guardianName: string;
+  guardianPhoneNo: string;
 }
 
 export default function SettingsScreen() {
   const { logout } = useAuth();
   
-  // Local Profile & Preferences State
   const [profile, setProfile] = useState<UserProfileData | null>(null);
-  const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
-  const [emailReminders, setEmailReminders] = useState(true);
 
-  // UI Flow Controls
   const [globalLoading, setGlobalLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [successModalVisible, setSuccessModalVisible] = useState(false);
 
-  // Form Fields State
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formAge, setFormAge] = useState('');
   const [formGender, setFormGender] = useState('MALE');
   const [formRole, setFormRole] = useState('STUDENT');
   const [formWakeUp, setFormWakeUp] = useState('');
+  const [formPhoneNo, setFormPhoneNo] = useState('');
+  const [formGuardianName, setFormGuardianName] = useState('');
+  const [formGuardianPhoneNo, setFormGuardianPhoneNo] = useState('');
 
-  // Reanimated Shared Scroll Offset for 3D Anti-Direction Parallax
+  // --- Change Password States ---
+  const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState('');
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false);
+
+  // Reanimated Shared Scroll Offset
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
@@ -90,24 +101,26 @@ export default function SettingsScreen() {
       const response = await rootApi.get<UserProfileData>('/api/user/profile');
       if (response.data) {
         setProfile(response.data);
-        // Sync values to form state fields
         setFormName(response.data.name);
         setFormEmail(response.data.email);
         setFormAge(String(response.data.age));
         setFormGender(response.data.gender || 'MALE');
         setFormRole(response.data.primaryRole || 'STUDENT');
         setFormWakeUp(response.data.wakeUpTime || '2026-06-11T06:00:00');
+        setFormPhoneNo(response.data.phoneNo || '');
+        setFormGuardianName(response.data.guardianName || '');
+        setFormGuardianPhoneNo(response.data.guardianPhoneNo || '');
       }
     } catch (err) {
-      console.error('Error compiling network profile matrices:', err);
+      console.error('Error fetching profile:', err);
     } finally {
       setGlobalLoading(false);
     }
   };
 
   const handleUpdateProfile = async () => {
-    if (!formName.trim() || !formAge.trim()) {
-      Alert.alert('Error', 'Please map out all required identifier properties');
+    if (!formName.trim() || !formAge.trim() || !formPhoneNo.trim() || !formGuardianName.trim() || !formGuardianPhoneNo.trim()) {
+      Alert.alert('Error', 'Please fill all required fields');
       return;
     }
 
@@ -119,7 +132,10 @@ export default function SettingsScreen() {
       age: parseInt(formAge, 10) || 0,
       gender: formGender,
       primaryRole: formRole,
-      wakeUpTime: formWakeUp
+      wakeUpTime: formWakeUp,
+      phoneNo: formPhoneNo.trim(),
+      guardianName: formGuardianName.trim(),
+      guardianPhoneNo: formGuardianPhoneNo.trim()
     };
 
     try {
@@ -133,16 +149,78 @@ export default function SettingsScreen() {
         gender: payload.gender,
         primaryRole: payload.primaryRole,
         wakeUpTime: payload.wakeUpTime,
+        phoneNo: payload.phoneNo,
+        guardianName: payload.guardianName,
+        guardianPhoneNo: payload.guardianPhoneNo
       });
-
       setEditModalVisible(false);
       setSuccessModalVisible(true);
     } catch (err) {
-      console.error('Payload validation rejected by service node:', err);
+      console.error('Update failed:', err);
       Alert.alert('Update Failed', 'An error occurred during submission.');
     } finally {
       setUpdating(false);
     }
+  };
+
+  // --- Change Password Handlers ---
+  const handleChangePassword = async () => {
+    // Validations
+    if (!oldPassword.trim()) {
+      setChangePasswordError('Please enter your current password');
+      return;
+    }
+    if (!newPassword.trim()) {
+      setChangePasswordError('Please enter a new password');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setChangePasswordError('New password must be at least 8 characters');
+      return;
+    }
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      setChangePasswordError('New password must contain at least 1 uppercase, 1 lowercase, and 1 digit');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setChangePasswordError('Passwords do not match');
+      return;
+    }
+    if (oldPassword === newPassword) {
+      setChangePasswordError('New password cannot be the same as old password');
+      return;
+    }
+
+    setChangePasswordError('');
+    setChangePasswordLoading(true);
+
+    try {
+      await rootApi.post('/api/auth/change-Password', {
+        oldPassword: oldPassword.trim(),
+        newPassword: newPassword.trim()
+      });
+      // Success
+      setChangePasswordModalVisible(false);
+      setPasswordChangeSuccess(true);
+      // Reset fields
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setChangePasswordError(err.response?.data?.message || 'Failed to change password. Please try again.');
+    } finally {
+      setChangePasswordLoading(false);
+    }
+  };
+
+  const closeChangePasswordModal = () => {
+    setChangePasswordModalVisible(false);
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setChangePasswordError('');
+    setChangePasswordLoading(false);
   };
 
   const ballStyle1 = useAnimatedStyle(() => ({
@@ -175,7 +253,6 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
       
-      {/* 3D BLURRED ORB AMBIENT SPHERES RENDER LAYER */}
       <Animated.View style={[styles.blurredLiquidSphere1, ballStyle1]} />
       <Animated.View style={[styles.blurredLiquidSphere2, ballStyle2]} />
       <Animated.View style={[styles.blurredLiquidSphere3, ballStyle3]} />
@@ -189,15 +266,13 @@ export default function SettingsScreen() {
       >
         <View style={styles.responsiveBentoContainerGrid}>
           
-          <Text style={[styles.dashboardSectionMainHeadline, { color: COLORS.textDark }]}>Account Core Engine</Text>
+          <Text style={[styles.dashboardSectionMainHeadline, { color: COLORS.textDark }]}>My Account Details</Text>
 
-          {/* DYNAMIC VIEW CONSTRAINTS WRAPPER */}
           <View style={isDesktop ? styles.desktopGridColumnsSplitRow : styles.mobileVerticalStackedLayout}>
             
             {/* COLUMN LEFT: PERSONAL IDENTITY PANEL */}
             <View style={isDesktop ? styles.desktopFlexibleColumn : styles.fullWidthPanelStack}>
               
-              {/* Profile Bio Widget Card Layout */}
               <View style={styles.glassPremiumDashboardCard}>
                 <View style={[styles.profileSidebarAvatarCircle, { backgroundColor: COLORS.primary }]}>
                   <Text style={styles.profileAvatarTextGraphic}>
@@ -213,11 +288,14 @@ export default function SettingsScreen() {
                   <Text style={styles.premiumTierBadgeText}>Premium Active Plan</Text>
                 </View>
 
-                {/* Identity Property Read-Only List Block */}
                 <View style={styles.metadataInlinePropertiesContainerList}>
                   <View style={styles.metadataRowItemFlex}>
                     <Text style={[styles.metadataItemLabel, { color: COLORS.textLight }]}>Age Index</Text>
                     <Text style={[styles.metadataItemValueText, { color: COLORS.textDark }]}>{profile?.age || 23} Yrs</Text>
+                  </View>
+                  <View style={styles.metadataRowItemFlex}>
+                    <Text style={[styles.metadataItemLabel, { color: COLORS.textLight }]}>Phone Number</Text>
+                    <Text style={[styles.metadataItemValueText, { color: COLORS.textDark }]}>{profile?.phoneNo || 'Not Set'}</Text>
                   </View>
                   <View style={styles.metadataRowItemFlex}>
                     <Text style={[styles.metadataItemLabel, { color: COLORS.textLight }]}>Gender Node</Text>
@@ -226,6 +304,14 @@ export default function SettingsScreen() {
                   <View style={styles.metadataRowItemFlex}>
                     <Text style={[styles.metadataItemLabel, { color: COLORS.textLight }]}>Account Authority Role</Text>
                     <Text style={[styles.metadataItemValueText, { color: COLORS.textDark }]}>{profile?.primaryRole || 'STUDENT'}</Text>
+                  </View>
+                  <View style={styles.metadataRowItemFlex}>
+                    <Text style={[styles.metadataItemLabel, { color: COLORS.textLight }]}>Guardian Name</Text>
+                    <Text style={[styles.metadataItemValueText, { color: COLORS.textDark }]}>{profile?.guardianName || 'Not Set'}</Text>
+                  </View>
+                  <View style={styles.metadataRowItemFlex}>
+                    <Text style={[styles.metadataItemLabel, { color: COLORS.textLight }]}>Guardian Phone</Text>
+                    <Text style={[styles.metadataItemValueText, { color: COLORS.textDark }]}>{profile?.guardianPhoneNo || 'Not Set'}</Text>
                   </View>
                   <View style={styles.metadataRowItemFlex}>
                     <Text style={[styles.metadataItemLabel, { color: COLORS.textLight }]}>Wake Up Sync Time</Text>
@@ -241,7 +327,7 @@ export default function SettingsScreen() {
                   onPress={() => setEditModalVisible(true)}
                 >
                   <Feather name="edit-3" size={16} color="white" style={{ marginRight: 8 }} />
-                  <Text style={styles.editProfileTriggerCTAButtonText}>Edit System Profile</Text>
+                  <Text style={styles.editProfileTriggerCTAButtonText}>Edit Profile</Text>
                 </TouchableOpacity>
               </View>
 
@@ -250,60 +336,20 @@ export default function SettingsScreen() {
             {/* COLUMN RIGHT: PREFERENCES & SYSTEM INTERACTIONS */}
             <View style={isDesktop ? styles.desktopFlexibleColumn : styles.fullWidthPanelStack}>
               
-              {/* Preferences Configuration block */}
-              {/*<View style={styles.glassPremiumDashboardCard}>
-                <Text style={[styles.cardSectionMiniHeadingTitleText, { color: COLORS.textDark }]}>System Preferences</Text>
-
-                <View style={styles.switchRowInteractionFlex}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.interactionMainLabelText, { color: COLORS.textDark }]}>Push Notification Matrix</Text>
-                    <Text style={[styles.interactionSubLabelText, { color: COLORS.textLight }]}>Real-time logs reminders configuration tips</Text>
-                  </View>
-                  <Switch
-                    value={notifications}
-                    onValueChange={setNotifications}
-                    trackColor={{ false: '#CBD5E1', true: COLORS.primary }}
-                    thumbColor="white"
-                  />
-                </View>
-
-                <View style={styles.switchRowInteractionFlex}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.interactionMainLabelText, { color: COLORS.textDark }]}>Dark Mode Overlays</Text>
-                    <Text style={[styles.interactionSubLabelText, { color: COLORS.textLight }]}>Dynamic adaptive visual parameters (Beta)</Text>
-                  </View>
-                  <Switch
-                    value={darkMode}
-                    onValueChange={setDarkMode}
-                    trackColor={{ false: '#CBD5E1', true: COLORS.primary }}
-                    thumbColor="white"
-                  />
-                </View>
-
-                <View style={styles.switchRowInteractionFlex}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.interactionMainLabelText, { color: COLORS.textDark }]}>Weekly Digest Reports</Text>
-                    <Text style={[styles.interactionSubLabelText, { color: COLORS.textLight }]}>Deliver mental battery resource logs to email</Text>
-                  </View>
-                  <Switch
-                    value={emailReminders}
-                    onValueChange={setEmailReminders}
-                    trackColor={{ false: '#CBD5E1', true: COLORS.primary }}
-                    thumbColor="white"
-                  />
-                </View>
-              </View>*/}
-
-              {/* Security operations exit card container panel */}
               <View style={styles.glassPremiumDashboardCard}>
                 <Text style={[styles.cardSectionMiniHeadingTitleText, { color: COLORS.textDark }]}>Account Verification & Exit</Text>
                 
-                {/*<TouchableOpacity style={styles.actionRowTileAnchorButton} onPress={() => Alert.alert('Security', 'System tokens are encrypted natively.')}>
-                  <Feather name="shield" size={18} color={COLORS.primary} />
-                  <Text style={[styles.actionRowTileAnchorButtonText, { color: COLORS.textDark }]}>Data Protection Integrity</Text>
-                  <Feather name="chevron-right" size={16} color={COLORS.textLight} style={{ marginLeft: 'auto' }} />
-                </TouchableOpacity>*/}
-
+                {/* Change Password Button - NEW */}
+                <TouchableOpacity style={styles.actionRowTileAnchorButton} onPress={() => setChangePasswordModalVisible(true)}>
+                  <Feather name="lock" size={18} color={COLORS.primary} />
+                  <Text style={[styles.actionRowTileAnchorButtonText, { color: COLORS.primary, fontWeight: '700' }]}>Change Password</Text>
+                  <Feather name="chevron-right" size={16} color={COLORS.primary} style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionRowTileAnchorButton} onPress={() => router.push('/(user)/faq')}>
+                  <Feather name="user" size={18} color={COLORS.primary} />
+                  <Text style={[styles.actionRowTileAnchorButtonText, { color: COLORS.primary, fontWeight: '700' }]}>FAQ's</Text>
+                  <Feather name="chevron-right" size={16} color={COLORS.primary} style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.actionRowTileAnchorButton} onPress={logout}>
                   <Feather name="log-out" size={18} color="#DC2626" />
                   <Text style={[styles.actionRowTileAnchorButtonText, { color: '#DC2626', fontWeight: '700' }]}>Terminate Secure Session</Text>
@@ -338,7 +384,7 @@ export default function SettingsScreen() {
               <TextInput
                 style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
                 placeholder="Nishi"
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={COLORS.textLight}
                 value={formName}
                 onChangeText={setFormName}
               />
@@ -347,11 +393,22 @@ export default function SettingsScreen() {
               <TextInput
                 style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
                 placeholder="example@gmail.com"
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={COLORS.textLight}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={formEmail}
-                onChangeText={formEmail => setFormEmail(formEmail)}
+                onChangeText={setFormEmail}
+              />
+
+              <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>Phone Number</Text>
+              <TextInput
+                style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
+                placeholder="10 digit number"
+                placeholderTextColor={COLORS.textLight}
+                keyboardType="number-pad"
+                maxLength={10}
+                value={formPhoneNo}
+                onChangeText={setFormPhoneNo}
               />
 
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -360,7 +417,7 @@ export default function SettingsScreen() {
                   <TextInput
                     style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
                     placeholder="23"
-                    placeholderTextColor={COLORS.textMuted}
+                    placeholderTextColor={COLORS.textLight}
                     keyboardType="number-pad"
                     value={formAge}
                     onChangeText={setFormAge}
@@ -371,7 +428,7 @@ export default function SettingsScreen() {
                   <TextInput
                     style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
                     placeholder="MALE"
-                    placeholderTextColor={COLORS.textMuted}
+                    placeholderTextColor={COLORS.textLight}
                     value={formGender}
                     onChangeText={setFormGender}
                   />
@@ -382,9 +439,29 @@ export default function SettingsScreen() {
               <TextInput
                 style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
                 placeholder="STUDENT"
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor={COLORS.textLight}
                 value={formRole}
                 onChangeText={setFormRole}
+              />
+
+              <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>Guardian Name</Text>
+              <TextInput
+                style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
+                placeholder="Guardian full name"
+                placeholderTextColor={COLORS.textLight}
+                value={formGuardianName}
+                onChangeText={setFormGuardianName}
+              />
+
+              <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>Guardian Phone Number</Text>
+              <TextInput
+                style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
+                placeholder="Guardian 10 digit number"
+                placeholderTextColor={COLORS.textLight}
+                keyboardType="number-pad"
+                maxLength={10}
+                value={formGuardianPhoneNo}
+                onChangeText={setFormGuardianPhoneNo}
               />
 
               <TouchableOpacity 
@@ -411,6 +488,105 @@ export default function SettingsScreen() {
             <Text style={[styles.modalSuccessAlertBodyParagraphText, { color: COLORS.textLight }]}>Your profile updated successfully! System records re-aligned.</Text>
             <TouchableOpacity style={[styles.modalDismissCTAButton, { backgroundColor: COLORS.primary }]} activeOpacity={0.8} onPress={() => setSuccessModalVisible(false)}>
               <Text style={styles.modalDismissCTAButtonText}>Acknowledge</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- CHANGE PASSWORD MODAL --- */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={changePasswordModalVisible}
+        onRequestClose={closeChangePasswordModal}
+      >
+        <View style={styles.modalBlurOverlayDimmer}>
+          <View style={styles.modalInteractiveSheetContainer}>
+            <View style={styles.modalHeaderRowLayout}>
+              <Text style={[styles.modalSheetMainTitle, { color: COLORS.textDark }]}>Change Password</Text>
+              <TouchableOpacity style={styles.modalCloseCircleButton} onPress={closeChangePasswordModal}>
+                <Feather name="x" size={18} color={COLORS.textDark} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
+              {changePasswordError ? (
+                <View style={[styles.errorContainer, { borderColor: '#FEE2E2', backgroundColor: '#FEF2F2', padding: 12, borderRadius: 12, marginBottom: 16 }]}>
+                  <Text style={{ color: '#DC2626', fontSize: 13, fontWeight: '600' }}>{changePasswordError}</Text>
+                </View>
+              ) : null}
+
+              {/* Old Password */}
+              <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>Current Password</Text>
+              <View style={styles.passwordInputWrapper}>
+                <TextInput
+                  style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border, paddingRight: 48 }]}
+                  placeholder="Enter current password"
+                  placeholderTextColor={COLORS.textLight}
+                  secureTextEntry={!showOldPassword}
+                  value={oldPassword}
+                  onChangeText={setOldPassword}
+                />
+                <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowOldPassword(!showOldPassword)}>
+                  <Feather name={showOldPassword ? "eye" : "eye-off"} size={18} color={COLORS.textLight} />
+                </TouchableOpacity>
+              </View>
+
+              {/* New Password */}
+              <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>New Password</Text>
+              <View style={styles.passwordInputWrapper}>
+                <TextInput
+                  style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border, paddingRight: 48 }]}
+                  placeholder="Enter new password"
+                  placeholderTextColor={COLORS.textLight}
+                  secureTextEntry={!showNewPassword}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                />
+                <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowNewPassword(!showNewPassword)}>
+                  <Feather name={showNewPassword ? "eye" : "eye-off"} size={18} color={COLORS.textLight} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Confirm Password */}
+              <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>Confirm New Password</Text>
+              <View style={styles.passwordInputWrapper}>
+                <TextInput
+                  style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border, paddingRight: 48 }]}
+                  placeholder="Re-enter new password"
+                  placeholderTextColor={COLORS.textLight}
+                  secureTextEntry={!showConfirmPassword}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+                <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                  <Feather name={showConfirmPassword ? "eye" : "eye-off"} size={18} color={COLORS.textLight} />
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.modalSubmitButtonCTA, { backgroundColor: COLORS.primary }]}
+                onPress={handleChangePassword}
+                disabled={changePasswordLoading}
+              >
+                {changePasswordLoading ? <ActivityIndicator size="small" color="white" /> : <Text style={styles.modalSubmitButtonCTAText}>Update Password</Text>}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* PASSWORD CHANGE SUCCESS MODAL */}
+      <Modal animationType="fade" transparent visible={passwordChangeSuccess} onRequestClose={() => setPasswordChangeSuccess(false)}>
+        <View style={styles.modalCenterDimmerView}>
+          <View style={styles.modalSuccessAlertCard}>
+            <View style={[styles.modalSuccessCheckCircleIconBadge, { backgroundColor: '#22C55E' }]}>
+              <Feather name="check-circle" size={36} color="white" />
+            </View>
+            <Text style={[styles.modalSuccessAlertHeadingMainText, { color: COLORS.textDark }]}>Password Changed!</Text>
+            <Text style={[styles.modalSuccessAlertBodyParagraphText, { color: COLORS.textLight }]}>Your password has been updated successfully.</Text>
+            <TouchableOpacity style={[styles.modalDismissCTAButton, { backgroundColor: COLORS.primary }]} activeOpacity={0.8} onPress={() => setPasswordChangeSuccess(false)}>
+              <Text style={styles.modalDismissCTAButtonText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -546,7 +722,7 @@ const styles = StyleSheet.create({
   premiumTierBadgeWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(51, 105, 86, 0.08)', 
+    backgroundColor: 'rgba(51, 105, 86, 0.08)',
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 20,
@@ -602,22 +778,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  switchRowInteractionFlex: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(51, 105, 86, 0.06)',
-  },
-  interactionMainLabelText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  interactionSubLabelText: {
-    fontSize: 12,
-    marginTop: 2,
-  },
   actionRowTileAnchorButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -639,7 +799,7 @@ const styles = StyleSheet.create({
   modalBlurOverlayDimmer: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(17, 35, 29, 0.3)', 
+    backgroundColor: 'rgba(17, 35, 29, 0.3)',
   },
   modalInteractiveSheetContainer: {
     backgroundColor: '#FFFFFF',
@@ -739,5 +899,22 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '700',
     fontSize: 14,
+  },
+  // New styles for password inputs with eye icon
+  passwordInputWrapper: {
+    position: 'relative',
+    marginBottom: 4,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 16,
+    top: 18,
+    zIndex: 5,
+  },
+  errorContainer: {
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
   },
 });

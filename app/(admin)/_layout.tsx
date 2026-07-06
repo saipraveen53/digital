@@ -11,14 +11,13 @@ import {
   Megaphone,
   Menu,
   Search,
-  Settings,
   Shield,
   Sparkles,
   Users,
   X
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import { Animated, Image, Platform, Pressable, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { Drawer } from 'react-native-drawer-layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
@@ -146,9 +145,9 @@ export default function AdminLayout() {
     { title: 'Users', icon: Users, route: '/(admin)/users', color: '#3b82f6', description: 'Manage Users' },
     { title: 'AI Tips', icon: Sparkles, route: '/(admin)/tips', color: '#8b5cf6', description: 'Recovery Tips' },
     { title: 'Banners', icon: Megaphone, route: '/(admin)/banners', color: '#ec4899', description: 'Promotional Banners' },
-    { title: 'Advertisements', icon: Megaphone, route: '/(admin)/advertisements', color: '#ec4899', description: 'Campaigns' },
+    { title: 'Consultations', icon: Megaphone, route: '/(admin)/advertisements', color: '#ec4899', description: 'Campaigns' },
     { title: 'Subscriptions', icon: CreditCard, route: '/(admin)/subscriptions', color: '#f59e0b', description: 'Plans & Revenue' },
-    { title: 'Settings', icon: Settings, route: '/(admin)/settings', color: '#64748b', description: 'Configuration' }
+    { title: 'Subscribers', icon: Users, route: '/(admin)/settings', color: '#64748b', description: 'Configuration' }
   ], []);
 
   const filteredMenuItems = useMemo(() => {
@@ -187,11 +186,14 @@ export default function AdminLayout() {
         <View className={`flex-row items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           {!isSidebarCollapsed && (
             <View className="flex-row items-center gap-3">
-              <View className="w-10 h-10 bg-teal-600 rounded-xl items-center justify-center shadow-sm">
-                <Shield size={20} color="white" />
-              </View>
+
+               <Image
+                 source={require("../../assets/images/logo2.png")}
+                 style={{ width: 64, height: 64, borderRadius: 12 }}
+                 resizeMode="contain"
+               />
               <View>
-                <Text className="text-slate-900 text-lg font-bold tracking-tight">EnergyTracker</Text>
+                <Text className="text-slate-900 text-lg font-bold tracking-tight">Wellbeing Gauge</Text>
                 <Text className="text-teal-600 text-xs font-medium">Admin Console</Text>
               </View>
             </View>
@@ -293,7 +295,7 @@ export default function AdminLayout() {
       </ScrollView>
       {!isSidebarCollapsed && (
         <View className="px-6 py-4 border-t border-slate-100">
-          <Text className="text-slate-400 text-xs text-center">EnergyTracker v1.0.0</Text>
+          <Text className="text-slate-400 text-xs text-center">Wellbeing Gauge v1.0.0</Text>
           <Text className="text-slate-400 text-xs text-center mt-1">© 2026 All rights reserved</Text>
         </View>
       )}
