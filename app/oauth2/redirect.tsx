@@ -13,10 +13,8 @@ export default function OAuth2RedirectHandler() {
     async function handleOAuthToken() {
       if (token) {
         try {
-          // AuthContext లో ఉన్న మెథడ్ ద్వారా టోకెన్ ని సేవ్ చేస్తాము
           const result = await loginWithGoogleToken(token);
           if (result.success) {
-            // సక్సెస్ అయ్యాక నేరుగా యూజర్ హోమ్ పేజీకి పంపుతుంది
             router.replace('/(user)/home');
           } else {
             router.replace('/(public)/login');
@@ -26,7 +24,6 @@ export default function OAuth2RedirectHandler() {
           router.replace('/(public)/login');
         }
       } else {
-        // ఒకవేళ టోకెన్ రాకపోతే లాగిన్ పేజీకి పంపేయాలి
         router.replace('/(public)/login');
       }
     }

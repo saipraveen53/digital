@@ -557,21 +557,14 @@ export default function UserHome() {
             ]}
           >
             <View style={{ flex: 1 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 6,
-                  marginBottom: 12,
-                }}
-              >
-                 <Image
-                    source={require("../../assets/images/logo2.png")}
-                    className="w-20 h-20 rounded-[12px]"
-                    resizeMode="cover"
-                  />
-                <Text style={[styles.brandText, { color: COLORS.textDark }]}>Wellbeing Gauge</Text>
-              </View>
+              <View style={styles.brandTitleContainer}>
+              <Image 
+                source={require("../../assets/images/logo2.png")} 
+                style={styles.brandLogoImage} 
+                resizeMode="cover" 
+              />
+              <Text style={[styles.brandText, { color: COLORS.textDark }]}>Wellbeing Gauge</Text>
+            </View>
               <Text
                 style={[styles.greetingText, { color: COLORS.textLight }, !isDesktop && { fontSize: 24 }]}
               >
@@ -1044,11 +1037,23 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.2,
   },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+ headerRow: { 
+    flexDirection: isDesktop ? "row" : "column", 
+    justifyContent: "space-between", 
+    alignItems: isDesktop ? "center" : "flex-start", 
     marginBottom: 28,
+    width: "100%",
+    gap: 16
+  },
+  brandTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  brandLogoImage: {
+    width: 44, 
+    height: 44, 
+    borderRadius: 10,
   },
   greetingText: {
     fontSize: 28,
