@@ -133,19 +133,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithGoogleToken = async (token: string) => {
-    setIsLoading(true);
-    try {
-      const userData = extractUserFromToken(token);
-      if (!userData) throw new Error('Invalid OAuth Token');
-      
-      await handleAuthSuccess(token, userData);
-      return { success: true, message: `Welcome, ${userData.name}!` };
-    } catch (error: any) {
-      setIsLoading(false);
-      return { success: false, message: error.message || 'Google Login Failed' };
-    }
-  };
+const loginWithGoogleToken = async (token: string) => {
+  setIsLoading(true);
+  try {
+    const userData = extractUserFromToken(token);
+    if (!userData) throw new Error('Invalid OAuth Token');
+    
+    await handleAuthSuccess(token, userData);
+    
+    return { success: true, message: `Welcome, ${userData.name}!` };
+  } catch (error: any) {
+    setIsLoading(false);
+    return { success: false, message: error.message || 'Google Login Failed' };
+  }
+};
   const logout = async () => {
     const confirmLogout = () => {
       return new Promise<boolean>((resolve) => {
