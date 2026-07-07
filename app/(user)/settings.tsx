@@ -28,6 +28,15 @@ import { rootApi } from '../utils/axiosInstance';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const isDesktop = screenWidth >= 1024;
 
+const ROLES_LIST = [
+  { label: "Student", value: "STUDENT" },
+  { label: "Working Professional", value: "WORKING_PROFESSIONAL" },
+  { label: "Parents", value: "PARENTS" },
+  { label: "Caregiver", value: "CAREGIVER" },
+  { label: "Entrepreneur", value: "ENTREPRENEUR" },
+  { label: "Other", value: "OTHER" },
+];
+
 const COLORS = {
   background: '#FAF9F5',
   cardBg: 'rgba(255, 255, 255, 0.90)',
@@ -62,6 +71,7 @@ export default function SettingsScreen() {
   const [updating, setUpdating] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [roleDropdownVisible, setRoleDropdownVisible] = useState(false);
 
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
@@ -128,7 +138,7 @@ export default function SettingsScreen() {
     const payload = {
       userId: profile?.userId || 'USER00002',
       name: formName.trim(),
-      email: formEmail.trim(),
+      email: formEmail.trim(), // Will be read-only so it sends back safe original value
       age: parseInt(formAge, 10) || 0,
       gender: formGender,
       primaryRole: formRole,
@@ -165,7 +175,6 @@ export default function SettingsScreen() {
 
   // --- Change Password Handlers ---
   const handleChangePassword = async () => {
-    // Validations
     if (!oldPassword.trim()) {
       setChangePasswordError('Please enter your current password');
       return;
@@ -200,10 +209,8 @@ export default function SettingsScreen() {
         oldPassword: oldPassword.trim(),
         newPassword: newPassword.trim()
       });
-      // Success
       setChangePasswordModalVisible(false);
       setPasswordChangeSuccess(true);
-      // Reset fields
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -240,6 +247,11 @@ export default function SettingsScreen() {
       { translateY: interpolate(scrollY.value, [0, screenHeight], [-60, -390]) },
     ],
   }));
+
+  const getSelectedRoleLabel = () => {
+    const roleObj = ROLES_LIST.find(r => r.value === formRole);
+    return roleObj ? roleObj.label : formRole;
+  };
 
   if (globalLoading) {
     return (
@@ -303,7 +315,9 @@ export default function SettingsScreen() {
                   </View>
                   <View style={styles.metadataRowItemFlex}>
                     <Text style={[styles.metadataItemLabel, { color: COLORS.textLight }]}>Account Authority Role</Text>
-                    <Text style={[styles.metadataItemValueText, { color: COLORS.textDark }]}>{profile?.primaryRole || 'STUDENT'}</Text>
+                    <Text style={[styles.metadataItemValueText, { color: COLORS.textDark }]}>
+                      {ROLES_LIST.find(r => r.value === profile?.primaryRole)?.label || profile?.primaryRole || 'Student'}
+                    </Text>
                   </View>
                   <View style={styles.metadataRowItemFlex}>
                     <Text style={[styles.metadataItemLabel, { color: COLORS.textLight }]}>Guardian Name</Text>
@@ -339,7 +353,6 @@ export default function SettingsScreen() {
               <View style={styles.glassPremiumDashboardCard}>
                 <Text style={[styles.cardSectionMiniHeadingTitleText, { color: COLORS.textDark }]}>Account Verification & Exit</Text>
                 
-                {/* Change Password Button - NEW */}
                 <TouchableOpacity style={styles.actionRowTileAnchorButton} onPress={() => setChangePasswordModalVisible(true)}>
                   <Feather name="lock" size={18} color={COLORS.primary} />
                   <Text style={[styles.actionRowTileAnchorButtonText, { color: COLORS.primary, fontWeight: '700' }]}>Change Password</Text>
@@ -389,15 +402,15 @@ export default function SettingsScreen() {
                 onChangeText={setFormName}
               />
 
-              <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>Secure Email Identifier</Text>
+              <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>Secure Email Identifier (Non-Editable)</Text>
               <TextInput
-                style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
+                style={[styles.modalTextInputBoxComponent, styles.disabledInputBox, { color: COLORS.textLight, borderColor: COLORS.border }]}
                 placeholder="example@gmail.com"
                 placeholderTextColor={COLORS.textLight}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={formEmail}
-                onChangeText={setFormEmail}
+                editable={false} // Makes field Read-Only bro
               />
 
               <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>Phone Number</Text>
@@ -435,14 +448,16 @@ export default function SettingsScreen() {
                 </View>
               </View>
 
+              {/* DROPDOWN TRIGGER INTERACTION INSTEAD OF TEXTINPUT */}
               <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>Primary Role Authority</Text>
-              <TextInput
-                style={[styles.modalTextInputBoxComponent, { color: COLORS.textDark, borderColor: COLORS.border }]}
-                placeholder="STUDENT"
-                placeholderTextColor={COLORS.textLight}
-                value={formRole}
-                onChangeText={setFormRole}
-              />
+              <TouchableOpacity 
+                style={[styles.dropdownSelectorTriggerBox, { borderColor: COLORS.border }]} 
+                onPress={() => setRoleDropdownVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: COLORS.textDark, fontSize: 15 }}>{getSelectedRoleLabel()}</Text>
+                <Feather name="chevron-down" size={18} color={COLORS.primary} />
+              </TouchableOpacity>
 
               <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>Guardian Name</Text>
               <TextInput
@@ -472,6 +487,44 @@ export default function SettingsScreen() {
                 {updating ? <ActivityIndicator size="small" color="white" /> : <Text style={styles.modalSubmitButtonCTAText}>Submit Profile Update</Text>}
               </TouchableOpacity>
 
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CORE DROPDOWN OPTIONS LIST MODAL SHEET */}
+      <Modal animationType="fade" transparent={true} visible={roleDropdownVisible} onRequestClose={() => setRoleDropdownVisible(false)}>
+        <View style={styles.dropdownModalSheetOverlayContainer}>
+          <View style={styles.dropdownOptionsMainWrapperCard}>
+            <View style={styles.modalHeaderRowLayout}>
+              <Text style={[styles.modalSheetMainTitle, { color: COLORS.textDark }]}>Select Primary Role</Text>
+              <TouchableOpacity style={styles.modalCloseCircleButton} onPress={() => setRoleDropdownVisible(false)}>
+                <Feather name="x" size={18} color={COLORS.textDark} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {ROLES_LIST.map((item) => (
+                <TouchableOpacity
+                  key={item.value}
+                  style={[
+                    styles.dropdownIndividualOptionRowButton,
+                    formRole === item.value && { backgroundColor: 'rgba(51, 105, 86, 0.08)' }
+                  ]}
+                  onPress={() => {
+                    setFormRole(item.value);
+                    setRoleDropdownVisible(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.dropdownOptionTextLabel, 
+                    { color: COLORS.textDark },
+                    formRole === item.value && { color: COLORS.primary, fontWeight: '700' }
+                  ]}>
+                    {item.label}
+                  </Text>
+                  {formRole === item.value && <Feather name="check" size={16} color={COLORS.primary} />}
+                </TouchableOpacity>
+              ))}
             </ScrollView>
           </View>
         </View>
@@ -842,6 +895,48 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginBottom: 18,
   },
+  disabledInputBox: {
+    backgroundColor: '#EAE9E5',
+    opacity: 0.65,
+  },
+  dropdownSelectorTriggerBox: {
+    backgroundColor: '#FAF9F5',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  dropdownModalSheetOverlayContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(17, 35, 29, 0.4)',
+    padding: 20,
+  },
+  dropdownOptionsMainWrapperCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: screenHeight * 0.6,
+  },
+  dropdownIndividualOptionRowButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 4,
+  },
+  dropdownOptionTextLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
   modalSubmitButtonCTA: {
     paddingVertical: 16,
     borderRadius: 14,
@@ -900,7 +995,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
-  // New styles for password inputs with eye icon
   passwordInputWrapper: {
     position: 'relative',
     marginBottom: 4,

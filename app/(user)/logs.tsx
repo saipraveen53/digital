@@ -166,7 +166,6 @@ export default function LogsScreen() {
         params: { status: false },
       });
 
-      // ✅ FIXED: filterPeriod బగ్‌ను కరెక్ట్ చేసి UI స్టేట్ నుండి తక్షణమే తీసివేస్తున్నాం
       const filterUpdater = (prev: ActivityItem[]) =>
         prev.filter((item) => item.activityId !== activityId);
 
@@ -174,10 +173,7 @@ export default function LogsScreen() {
       setDrainActivities(filterUpdater);
       setRecoveryActivities(filterUpdater);
       
-      // ✅ SUCCESS MODAL OPEN
       setDeleteSuccessVisible(true);
-
-      // బ్యాకెండ్ సింక్ కోసం
       fetchAllData();
     } catch (err) {
       console.error("Failed executing delete request matrix:", err);
@@ -353,9 +349,15 @@ export default function LogsScreen() {
                         +{item.activityPercenage}%
                       </Text>
 
-                      <TouchableOpacity style={styles.plusTileIconActionButton} onPress={() => handleCompleteActivity(item.activityId, item.activityName)}>
-                        <Feather name="plus" size={14} color={COLORS.primary} />
-                      </TouchableOpacity>
+                      {loadingStates[item.activityId] ? (
+                        <View style={styles.plusTileIconActionButton}>
+                          <ActivityIndicator size="small" color={COLORS.primary} />
+                        </View>
+                      ) : (
+                        <TouchableOpacity style={styles.plusTileIconActionButton} onPress={() => handleCompleteActivity(item.activityId, item.activityName)}>
+                          <Feather name="plus" size={14} color={COLORS.primary} />
+                        </TouchableOpacity>
+                      )}
 
                       <TouchableOpacity 
                         style={{ marginLeft: 8, padding: 6 }} 
@@ -398,9 +400,15 @@ export default function LogsScreen() {
                         -{item.activityPercenage}%
                       </Text>
 
-                      <TouchableOpacity style={styles.plusTileIconActionButton} onPress={() => handleCompleteActivity(item.activityId, item.activityName)}>
-                        <Feather name="plus" size={14} color={COLORS.primary} />
-                      </TouchableOpacity>
+                      {loadingStates[item.activityId] ? (
+                        <View style={styles.plusTileIconActionButton}>
+                          <ActivityIndicator size="small" color={COLORS.drainColor} />
+                        </View>
+                      ) : (
+                        <TouchableOpacity style={styles.plusTileIconActionButton} onPress={() => handleCompleteActivity(item.activityId, item.activityName)}>
+                          <Feather name="plus" size={14} color={COLORS.primary} />
+                        </TouchableOpacity>
+                      )}
 
                       <TouchableOpacity 
                         style={{ marginLeft: 8, padding: 6 }}
@@ -441,7 +449,7 @@ export default function LogsScreen() {
         </View>
       </Modal>
 
-      {/* ✅ NEW: DELETE SUCCESS MODAL POPUP */}
+      {/* NEW: DELETE SUCCESS MODAL POPUP */}
       <Modal animationType="fade" transparent={true} visible={deleteSuccessVisible} onRequestClose={() => setDeleteSuccessVisible(false)}>
         <View style={styles.completionOverlayCenteredDimmer}>
           <View style={styles.completionSuccessCardAlert}>

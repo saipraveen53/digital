@@ -839,7 +839,7 @@ export default function UserHome() {
                   <View style={styles.newspaperBadgeContainer}>
                     <Text style={styles.newspaperBadgeText}>THE DAILY INSIGHT</Text>
                   </View>
-                  <Text style={styles.newspaperIdLabel}>SEC. {banner.bannerId}</Text>
+                  {/*<Text style={styles.newspaperIdLabel}>SEC. {banner.bannerId}</Text>*/}
                 </View>
                 <Text style={styles.newspaperHeadlineTitle}>{banner.name}</Text>
                 <View style={styles.newspaperDividerLine} />
