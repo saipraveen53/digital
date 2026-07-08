@@ -95,6 +95,11 @@ export default function SettingsScreen() {
   const [changePasswordError, setChangePasswordError] = useState('');
   const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false);
 
+  // --- Delete Account New States ---
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteSuccessVisible, setDeleteSuccessVisible] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   // Reanimated Shared Scroll Offset
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -138,7 +143,7 @@ export default function SettingsScreen() {
     const payload = {
       userId: profile?.userId || 'USER00002',
       name: formName.trim(),
-      email: formEmail.trim(), // Will be read-only so it sends back safe original value
+      email: formEmail.trim(),
       age: parseInt(formAge, 10) || 0,
       gender: formGender,
       primaryRole: formRole,
@@ -228,6 +233,27 @@ export default function SettingsScreen() {
     setConfirmPassword('');
     setChangePasswordError('');
     setChangePasswordLoading(false);
+  };
+
+  // --- Delete Account Backend Call API Integration ---
+  const handleDeleteAccount = async () => {
+    if (!profile?.email) {
+      Alert.alert('Error', 'User email context missing.');
+      return;
+    }
+    setDeleteLoading(true);
+    try {
+      await rootApi.put('/api/auth/delete', null, {
+        params: { email: profile.email }
+      });
+      setDeleteModalVisible(false);
+      setDeleteSuccessVisible(true);
+    } catch (err: any) {
+      console.error('Account deletion crash:', err);
+      Alert.alert('Error', err.response?.data?.message || 'Failed to delete account. Please try again.');
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const ballStyle1 = useAnimatedStyle(() => ({
@@ -356,7 +382,7 @@ export default function SettingsScreen() {
                 <TouchableOpacity style={styles.actionRowTileAnchorButton} onPress={() => setChangePasswordModalVisible(true)}>
                   <Feather name="lock" size={18} color={COLORS.primary} />
                   <Text style={[styles.actionRowTileAnchorButtonText, { color: COLORS.primary, fontWeight: '700' }]}>Change Password</Text>
-                  <Feather name="chevron-right" size={16} color={COLORS.primary} style={{ marginLeft: 'auto' }} />
+                   <Feather name="chevron-right" size={16} color={COLORS.primary} style={{ marginLeft: 'auto' }} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionRowTileAnchorButton} onPress={() => router.push('/(user)/faq')}>
                   <Feather name="user" size={18} color={COLORS.primary} />
@@ -366,6 +392,13 @@ export default function SettingsScreen() {
                 <TouchableOpacity style={styles.actionRowTileAnchorButton} onPress={logout}>
                   <Feather name="log-out" size={18} color="#DC2626" />
                   <Text style={[styles.actionRowTileAnchorButtonText, { color: '#DC2626', fontWeight: '700' }]}>Terminate Secure Session</Text>
+                  <Feather name="chevron-right" size={16} color="#DC2626" style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+
+                {/* NEWLY ADDED: DELETE ACCOUNT BUTTON */}
+                <TouchableOpacity style={styles.actionRowTileAnchorButton} onPress={() => setDeleteModalVisible(true)}>
+                  <Feather name="trash-2" size={18} color="#DC2626" />
+                  <Text style={[styles.actionRowTileAnchorButtonText, { color: '#DC2626', fontWeight: '700' }]}>Delete Account</Text>
                   <Feather name="chevron-right" size={16} color="#DC2626" style={{ marginLeft: 'auto' }} />
                 </TouchableOpacity>
               </View>
@@ -410,7 +443,7 @@ export default function SettingsScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={formEmail}
-                editable={false} // Makes field Read-Only bro
+                editable={false}
               />
 
               <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>Phone Number</Text>
@@ -448,7 +481,6 @@ export default function SettingsScreen() {
                 </View>
               </View>
 
-              {/* DROPDOWN TRIGGER INTERACTION INSTEAD OF TEXTINPUT */}
               <Text style={[styles.modalLabelTitleField, { color: COLORS.textDark }]}>Primary Role Authority</Text>
               <TouchableOpacity 
                 style={[styles.dropdownSelectorTriggerBox, { borderColor: COLORS.border }]} 
@@ -640,6 +672,61 @@ export default function SettingsScreen() {
             <Text style={[styles.modalSuccessAlertBodyParagraphText, { color: COLORS.textLight }]}>Your password has been updated successfully.</Text>
             <TouchableOpacity style={[styles.modalDismissCTAButton, { backgroundColor: COLORS.primary }]} activeOpacity={0.8} onPress={() => setPasswordChangeSuccess(false)}>
               <Text style={styles.modalDismissCTAButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- NEW: DELETE ACCOUNT CONFIRMATION MODAL (Are you sure? with Yes/No) --- */}
+      <Modal animationType="fade" transparent={true} visible={deleteModalVisible} onRequestClose={() => setDeleteModalVisible(false)}>
+        <View style={styles.modalCenterDimmerView}>
+          <View style={styles.modalSuccessAlertCard}>
+            <View style={[styles.modalSuccessCheckCircleIconBadge, { backgroundColor: '#DC2626' }]}>
+              <Feather name="alert-triangle" size={32} color="white" />
+            </View>
+            <Text style={[styles.modalSuccessAlertHeadingMainText, { color: COLORS.textDark }]}>Confirm Deletion</Text>
+            <Text style={[styles.modalSuccessAlertBodyParagraphText, { color: COLORS.textLight }]}>Are you sure you want to delete your account?</Text>
+            
+            <View style={{ flexDirection: 'row', gap: 12, width: '100%', marginTop: 10 }}>
+              <TouchableOpacity 
+                style={[styles.modalDismissCTAButton, { backgroundColor: '#E2E8F0', flex: 1 }]} 
+                onPress={() => setDeleteModalVisible(false)}
+              >
+                <Text style={[styles.modalDismissCTAButtonText, { color: '#334155' }]}>No</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalDismissCTAButton, { backgroundColor: '#DC2626', flex: 1 }]} 
+                onPress={handleDeleteAccount}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? <ActivityIndicator size="small" color="white" /> : <Text style={styles.modalDismissCTAButtonText}>Yes</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- NEW: DELETE ACCOUNT SUCCESS MODAL (Your account has deleted) --- */}
+      <Modal animationType="fade" transparent={true} visible={deleteSuccessVisible} onRequestClose={() => {}}>
+        <View style={styles.modalCenterDimmerView}>
+          <View style={styles.modalSuccessAlertCard}>
+            <View style={[styles.modalSuccessCheckCircleIconBadge, { backgroundColor: '#22C55E' }]}>
+              <Feather name="check-circle" size={36} color="white" />
+            </View>
+            <Text style={[styles.modalSuccessAlertHeadingMainText, { color: COLORS.textDark }]}>Account Deleted</Text>
+            <Text style={[styles.modalSuccessAlertBodyParagraphText, { color: COLORS.textLight }]}>your Account has deleted</Text>
+            
+            <TouchableOpacity 
+              style={[styles.modalDismissCTAButton, { backgroundColor: COLORS.primary }]} 
+              activeOpacity={0.8} 
+              onPress={async () => {
+                setDeleteSuccessVisible(false);
+                await logout();
+                router.replace('/login');
+              }}
+            >
+              <Text style={styles.modalDismissCTAButtonText}>Ok</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -985,10 +1072,10 @@ const styles = StyleSheet.create({
   },
   modalDismissCTAButton: {
     paddingVertical: 12,
-    paddingHorizontal: 24,
     borderRadius: 12,
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalDismissCTAButtonText: {
     color: 'white',
