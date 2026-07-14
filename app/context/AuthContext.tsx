@@ -21,6 +21,7 @@ interface User {
 interface JWTPayload {
   role: Array<{ authority: string }>;
   userId: string;
+  name: string;
   sub: string;
   iat: number;
   exp: number;
@@ -48,7 +49,7 @@ const extractUserFromToken = (token: string): User | null => {
     const role: UserRole = isAdmin ? 'admin' : 'user';
 
     const emailParts = decoded.sub.split('@');
-    const name = emailParts[0].split('.').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+    const name = decoded.name || (emailParts.length > 0 ? emailParts[0] : 'User');
 
     return { id: decoded.userId, email: decoded.sub, role, name, isLoggedIn: true, token };
   } catch (error) {
@@ -73,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (user.role === 'admin') router.replace('/(admin)/dashboard');
         else router.replace('/(user)/home');
       } else if (!user && !inPublicGroup) {
-        router.replace('/(public)/login');
+        router.replace('/(public)');
       }
     }
   }, [user, isInitializing, segments]);
@@ -133,20 +134,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-const loginWithGoogleToken = async (token: string) => {
-  setIsLoading(true);
-  try {
-    const userData = extractUserFromToken(token);
-    if (!userData) throw new Error('Invalid OAuth Token');
-    
-    await handleAuthSuccess(token, userData);
-    
-    return { success: true, message: `Welcome, ${userData.name}!` };
-  } catch (error: any) {
-    setIsLoading(false);
-    return { success: false, message: error.message || 'Google Login Failed' };
-  }
-};
+const loginWithGoogleToken = async (googleToken: string) => {
+    setIsLoading(true);
+    try {
+      // 1. Send Google ID Token to backend
+      const response = await rootApi.post<{ token: string }>('/api/auth/google-login', { token: googleToken });
+      const jwtToken = response.data.token;
+      
+      // 2. Extract user data from the JWT Token returned by backend
+      const userData = extractUserFromToken(jwtToken);
+      
+      if (!userData) {
+        throw new Error('Invalid token received from server');
+      }
+      
+      // 3. Save token and update state (handleAuthSuccess handles the redirect)
+      await handleAuthSuccess(jwtToken, userData);
+      
+      return { success: true, message: `Welcome, ${userData.name}!` };
+      
+    } catch (error: any) {
+      console.error("Backend login failed:", error);
+      setIsLoading(false);
+      return { success: false, message: error.response?.data?.message || 'Google Login Failed' };
+    }
+  };
   const logout = async () => {
     const confirmLogout = () => {
       return new Promise<boolean>((resolve) => {

@@ -1,4 +1,3 @@
-// app/(user)/tips.tsx
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
@@ -81,14 +80,19 @@ export default function TipsScreen() {
   const { user } = useAuth();
   const [categoriesList, setCategoriesList] = useState<TipCategoryItem[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [tipsList, setTipsList] = useState<AiTipItem[]>([]);
+  
+  // ✅ డైనమిక్ ఎక్స్‌టెన్షన్ కోసం ప్రతి కేటగిరీ కింద టిప్స్ ని మ్యాప్ చేసే ఆబ్జెక్ట్ స్టేట్
+  const [categoryTips, setCategoryTips] = useState<Record<number, AiTipItem[]>>({});
+  
   const [tipLogs, setTipLogs] = useState<TipLogItem[]>([]);
   const [scoreData, setScoreData] = useState<UserScoreData | null>(null);
 
   const [globalLoading, setGlobalLoading] = useState(true);
-  const [tipsLoading, setTipsLoading] = useState(false);
+  const [categoryLoadingId, setCategoryLoadingId] = useState<number | null>(null);
   const [logsLoading, setLogsLoading] = useState(false);
-  const [actionLoadingName, setActionLoadingName] = useState<string | null>(null);
+  
+  // ✅ ఫిక్స్: ఇమేజ్‌లో ఉన్న డబుల్ లోడింగ్ సమస్య పోవడానికి నేమ్‌కి బదులు ID ట్రాకింగ్
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const [showLogsOverlay, setShowLogsOverlay] = useState(false);
   const [selectedTip, setSelectedTip] = useState<AiTipItem | null>(null);
@@ -96,12 +100,7 @@ export default function TipsScreen() {
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Refs for auto‑scroll
   const scrollRef = useRef<Animated.ScrollView>(null);
-  const tipsSectionRef = useRef<View>(null);
-  const tipsSectionY = useRef(0);
-  const pendingScroll = useRef(false);
-
   const panY = useRef(new RNAnimated.Value(0)).current;
   const scrollY = useSharedValue(0);
 
@@ -142,18 +141,6 @@ export default function TipsScreen() {
     }
   }, [userId]);
 
-  // Auto‑scroll to recommendations when category changes and tips are loaded
-  useEffect(() => {
-    if (selectedCategoryId !== null && tipsList.length > 0 && !tipsLoading) {
-      pendingScroll.current = true;
-      if (tipsSectionY.current > 0) {
-        pendingScroll.current = false;
-        scrollRef.current?.scrollTo({ y: tipsSectionY.current - 20, animated: true });
-      }
-      // If not measured yet, onLayout will handle it
-    }
-  }, [selectedCategoryId, tipsList, tipsLoading]);
-
   const fetchInitialData = async () => {
     setGlobalLoading(true);
     try {
@@ -175,18 +162,28 @@ export default function TipsScreen() {
   };
 
   const handleCategoryPress = async (categoryId: number) => {
+    // ఒకవేళ ఆల్రెడీ ఓపెన్ చేసిన కేటగిరీని మళ్ళీ క్లిక్ చేస్తే దాన్ని క్లోజ్ (collapse) చేయడానికి
+    if (selectedCategoryId === categoryId) {
+      setSelectedCategoryId(null);
+      return;
+    }
+
     setSelectedCategoryId(categoryId);
-    setTipsLoading(true);
+    
+    // డేటా ఆల్రెడీ లోకల్‌గా లోడ్ అయి ఉంటే మళ్ళీ API కి కాల్ చేయదు
+    if (categoryTips[categoryId]) return;
+
+    setCategoryLoadingId(categoryId);
     try {
       const tipsRes = await rootApi.get<AiTipItem[]>("/api/tips/byCategory", {
         params: { categoryId: categoryId },
       });
-      setTipsList(tipsRes.data || []);
+      setCategoryTips(prev => ({ ...prev, [categoryId]: tipsRes.data || [] }));
     } catch (err) {
       console.error("Error fetching tips by category:", err);
       Alert.alert("Error", "Could not fetch tips for the selected category.");
     } finally {
-      setTipsLoading(false);
+      setCategoryLoadingId(null);
     }
   };
 
@@ -206,7 +203,8 @@ export default function TipsScreen() {
   };
 
   const handleApplyTip = async (item: AiTipItem) => {
-    setActionLoadingName(item.tipName);
+    // ✅ డబుల్ లోడింగ్ సమస్య లేకుండా ఐడి ని సెట్ చేస్తున్నాం
+    setActionLoadingId(item.tipId);
     const requestBody = { userId: userId, tipId: item.tipId };
 
     try {
@@ -222,7 +220,7 @@ export default function TipsScreen() {
     } catch (err) {
       console.error("Action endpoint validation trace failed:", err);
     } finally {
-      setActionLoadingName(null);
+      setActionLoadingId(null);
     }
   };
 
@@ -335,7 +333,7 @@ export default function TipsScreen() {
             </View>
           </View>
 
-          {/* Category Grid Layout */}
+          {/* 🌟 Category Grid Layout with Extended Inline Recommendations Feed */}
           <Text style={styles.gridSectionHeaderLabelTitle}>Select Category</Text>
           <View style={[styles.tipsBentoGridLayoutWrapperMesh, { marginBottom: 32 }]}>
             {categoriesList.length === 0 ? (
@@ -346,117 +344,100 @@ export default function TipsScreen() {
                 </Text>
               </View>
             ) : (
-              categoriesList.map((cat, idx) => {
+              categoriesList.map((cat) => {
                 const isSelected = selectedCategoryId === cat.categoryId;
+                const currentTips = categoryTips[cat.categoryId] || [];
+                const isCategoryLoading = categoryLoadingId === cat.categoryId;
+
                 return (
-                  <View key={cat.categoryId} style={[styles.gradientBorderWrapper, { width: isDesktop ? "48.5%" : "100%" }]}>
+                  <View key={cat.categoryId} style={[styles.gradientBorderWrapper, { width: "100%", marginBottom: 8 }]}>
                     <LinearGradient
                       colors={GRADIENT_COLORS}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.gradientBorderBackground, { padding: isSelected ? 2 : 1 }]}
                     >
-                      <TouchableOpacity
-                        style={[styles.gridPremiumBentoItemCardCellInner, { minHeight: 78 }]}
-                        activeOpacity={0.8}
-                        onPress={() => handleCategoryPress(cat.categoryId)}
-                      >
-                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-                          <Text style={[styles.gridCardMainHeadlineTextTitle, { marginBottom: 0 }]}>
+                      <View style={[styles.gridPremiumBentoItemCardCellInner, { minHeight: 70, paddingBottom: isSelected ? 12 : 20 }]}>
+                        <TouchableOpacity
+                          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%" }}
+                          activeOpacity={0.8}
+                          onPress={() => handleCategoryPress(cat.categoryId)}
+                        >
+                          <Text style={[styles.gridCardMainHeadlineTextTitle, { marginBottom: 0, fontSize: 16 }]}>
                             {cat.categoryTipName}
                           </Text>
-                          <Feather name="chevron-right" size={16} color={COLORS.primary} />
-                        </View>
-                      </TouchableOpacity>
+                          <Feather name={isSelected ? "chevron-down" : "chevron-right"} size={18} color={COLORS.primary} />
+                        </TouchableOpacity>
+
+                        {/* 🔄 లోడింగ్ ఇండికేటర్ కేవలం సెలెక్ట్ చేసిన ఆ పర్టిక్యులర్ లేఅవుట్ కిందే వస్తుంది */}
+                        {isSelected && isCategoryLoading && (
+                          <View style={{ paddingVertical: 20, width: "100%", alignItems: "center" }}>
+                            <ActivityIndicator size="small" color={COLORS.primary} />
+                          </View>
+                        )}
+
+                        {/* 📦 Extended Tips Section Layout Inside the Category Cell */}
+                        {isSelected && !isCategoryLoading && (
+                          <View style={{ width: "100%", marginTop: 16, borderTopWidth: 1, borderTopColor: "rgba(51, 105, 86, 0.08)", paddingTop: 16 }}>
+                            {currentTips.length === 0 ? (
+                              <Text style={{ fontSize: 13, color: COLORS.textLight, textAlign: "center", paddingVertical: 10 }}>
+                                No items generated inside recommendation buffer engine stack.
+                              </Text>
+                            ) : (
+                              <View style={{ gap: 14 }}>
+                                {currentTips.map((item) => (
+                                  <TouchableOpacity
+                                    key={item.tipId}
+                                    style={{ backgroundColor: "#FAF9F5", padding: 16, borderRadius: 16, borderBold: 1, borderColor: "rgba(0,0,0,0.02)" }}
+                                    activeOpacity={0.9}
+                                    onPress={() => setSelectedTip(item)}
+                                  >
+                                    <View style={styles.gridCardUpperBadgeContainerFlexRow}>
+                                      <Text style={styles.gridCardIndexBadgeTextLabel}>{item.categoryName || "INSIGHT"}</Text>
+                                      <View style={styles.scoreChangeInlineValueBadgeFloatingBox}>
+                                        <Text style={styles.scoreChangeInlineValueBadgeFloatingBoxText}>+{item.tipScore} XP</Text>
+                                      </View>
+                                    </View>
+
+                                    <Text style={[styles.gridCardMainHeadlineTextTitle, { fontSize: 15 }]} numberOfLines={1}>{item.tipName}</Text>
+                                    <Text style={[styles.gridCardParagraphMutedDescriptionText, { fontSize: 12, marginBottom: 12 }]} numberOfLines={2}>{item.tipDescription}</Text>
+
+                                    <TouchableOpacity
+                                      style={styles.applyActionButtonCTAWrapper}
+                                      activeOpacity={0.8}
+                                      onPress={() => handleApplyTip(item)}
+                                      disabled={actionLoadingId !== null}
+                                    >
+                                      <LinearGradient
+                                        colors={GRADIENT_COLORS}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={[styles.applyActionButtonCTAGradient, { paddingVertical: 10 }]}
+                                      >
+                                        {/* ✅ ఫిక్స్: కేవలం క్లిక్ చేసిన ఆ టిప్‌కి మాత్రమే స్పిన్నర్ తిరుగుతుంది */}
+                                        {actionLoadingId === item.tipId ? (
+                                          <ActivityIndicator size="small" color="white" />
+                                        ) : (
+                                          <>
+                                            <Feather name="zap" size={14} color="white" style={{ marginRight: 6 }} />
+                                            <Text style={[styles.applyActionButtonCTAText, { fontSize: 12 }]}>Recommend this</Text>
+                                          </>
+                                        )}
+                                      </LinearGradient>
+                                    </TouchableOpacity>
+                                  </TouchableOpacity>
+                                ))}
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
                     </LinearGradient>
                   </View>
                 );
               })
             )}
           </View>
-
-          {/* AI Recommendations Grid Feed based on Selected Category */}
-          {selectedCategoryId !== null && (
-            <View
-              ref={tipsSectionRef}
-              onLayout={(event) => {
-                tipsSectionY.current = event.nativeEvent.layout.y;
-                if (pendingScroll.current) {
-                  pendingScroll.current = false;
-                  scrollRef.current?.scrollTo({ y: tipsSectionY.current - 20, animated: true });
-                }
-              }}
-              style={{ width: '100%' }}
-            >
-              <Text style={styles.gridSectionHeaderLabelTitle}>Customized Recommendations Feed</Text>
-              {tipsLoading ? (
-                <View style={{ paddingVertical: 20 }}>
-                  <ActivityIndicator size="small" color={COLORS.primary} />
-                </View>
-              ) : (
-                <View style={styles.tipsBentoGridLayoutWrapperMesh}>
-                  {tipsList.length === 0 ? (
-                    <View style={styles.emptyFeedFallbackCardLayout}>
-                      <Feather name="sun" size={28} color={COLORS.textLight} style={{ marginBottom: 8 }} />
-                      <Text style={[styles.emptyFeedFallbackCardLayoutText, { color: COLORS.textLight }]}>
-                        No items generated inside recommendation buffer engine stack for this category.
-                      </Text>
-                    </View>
-                  ) : (
-                    tipsList.map((item, idx) => (
-                      <View key={item.tipId} style={[styles.gradientBorderWrapper, { width: isDesktop ? "48.5%" : "100%" }]}>
-                        <LinearGradient
-                          colors={GRADIENT_COLORS}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={[styles.gradientBorderBackground, { padding: 1.5 }]}
-                        >
-                          <TouchableOpacity
-                            style={[styles.gridPremiumBentoItemCardCellInner, { minHeight: 220 }]}
-                            activeOpacity={0.9}
-                            onPress={() => setSelectedTip(item)}
-                          >
-                            <View style={styles.gridCardUpperBadgeContainerFlexRow}>
-                              <Text style={styles.gridCardIndexBadgeTextLabel}>{item.categoryName || "INSIGHT"}</Text>
-                              <View style={styles.scoreChangeInlineValueBadgeFloatingBox}>
-                                <Text style={styles.scoreChangeInlineValueBadgeFloatingBoxText}>+{item.tipScore} XP</Text>
-                              </View>
-                            </View>
-
-                            <Text style={styles.gridCardMainHeadlineTextTitle} numberOfLines={1}>{item.tipName}</Text>
-                            <Text style={styles.gridCardParagraphMutedDescriptionText} numberOfLines={3}>{item.tipDescription}</Text>
-
-                            <TouchableOpacity
-                              style={[styles.applyActionButtonCTAWrapper, { marginTop: "auto" }]}
-                              activeOpacity={0.8}
-                              onPress={() => handleApplyTip(item)}
-                              disabled={actionLoadingName !== null}
-                            >
-                              <LinearGradient
-                                colors={GRADIENT_COLORS}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.applyActionButtonCTAGradient}
-                              >
-                                {actionLoadingName === item.tipName ? (
-                                  <ActivityIndicator size="small" color="white" />
-                                ) : (
-                                  <>
-                                    <Feather name="zap" size={14} color="white" style={{ marginRight: 6 }} />
-                                    <Text style={styles.applyActionButtonCTAText}>Recommend this</Text>
-                                  </>
-                                )}
-                              </LinearGradient>
-                            </TouchableOpacity>
-                          </TouchableOpacity>
-                        </LinearGradient>
-                      </View>
-                    ))
-                  )}
-                </View>
-              )}
-            </View>
-          )}
         </View>
       </Animated.ScrollView>
 
@@ -474,11 +455,7 @@ export default function TipsScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-              style={{ maxHeight: 200, marginVertical: 12, paddingRight: 4 }}
-            >
+            <ScrollView showsVerticalScrollIndicator={true} nestedScrollEnabled={true} style={{ maxHeight: 200, marginVertical: 12, paddingRight: 4 }}>
               <Text style={styles.detailCardParagraphBodyContent}>{selectedTip?.tipDescription}</Text>
             </ScrollView>
 

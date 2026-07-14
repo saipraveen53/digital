@@ -4,10 +4,12 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  Linking,
   Platform,
   SafeAreaView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import AppAnimated, {
@@ -106,6 +108,7 @@ export default function TrendsScreen() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [peakScore, setPeakScore] = useState(0);
   const [weeklyAvg, setWeeklyAvg] = useState(0);
+  const [bannerExpanded, setBannerExpanded] = useState(false);
 
   // ✅ FIXED: New state management setup for handling most recent activities payload mapping
   const [mostRecentActivity, setMostRecentActivity] = useState<MostRecentActivityResponse>({
@@ -201,7 +204,7 @@ export default function TrendsScreen() {
           params: { activityType: "RECOVERY" },
         }),
         rootApi.get<RecentActivityLog[]>("/api/user/recent-activities"),
-        rootApi.get<BannerData[]>("/api/banner/all"),
+        rootApi.get<BannerData[]>("/api/banner/getByStatus?status=true"),
         rootApi.get<MostRecentActivityResponse>("/api/user/mostRecentActivity"),
       ]);
 
@@ -328,32 +331,51 @@ export default function TrendsScreen() {
             </View>
           </View>
 
-          {/* ATTRACTIVE DYNAMIC PROMOTIONAL HERO BANNER BLOCK DISPLAY */}
-          {banner && (
-            <View style={styles.premiumBannerCard}>
-              <View style={styles.bannerHeaderFlexRow}>
-                <View style={[styles.bannerBadgeWrapper, { backgroundColor: "rgba(51, 105, 86, 0.08)" }]}>
-                  <Feather name="sparkles" size={12} color={COLORS.primary} style={{ marginRight: 4 }} />
-                  <Text style={[styles.bannerBadgeInnerText, { color: COLORS.primary }]}>
-                    System Spotlight
-                  </Text>
+                  {/* Banner */}
+                 {/* Banner */}
+        {banner && (
+          <View style={styles.newspaperBannerCard}>
+            <View style={styles.newspaperInnerPadding}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={styles.newspaperBadgeContainer}>
+                  <Text style={styles.newspaperBadgeText}>THE DAILY INSIGHT</Text>
                 </View>
-                <Text style={[styles.bannerIdBadgeLabel, { color: COLORS.textLight }]}>
-                  SEC. {banner.bannerId}
-                </Text>
               </View>
-              <Text style={[styles.bannerHeadlineMainTitle, { color: COLORS.textDark }]}>
-                {banner.name}
-              </Text>
-              <View style={styles.bannerDividerLine} />
-              <Text
-                style={[styles.bannerParagraphBodyDescription, { color: COLORS.textLight }]}
-                numberOfLines={isDesktop ? 3 : 5}
+              <Text style={styles.newspaperHeadlineTitle}>{banner.name}</Text>
+              <View style={styles.newspaperDividerLine} />
+              
+              {/* Read More క్లిక్ చేసినప్పుడు కంప్లీట్ డిస్క్రిప్షన్ కనిపిస్తుంది */}
+              <Text 
+                style={styles.newspaperParagraphBody} 
+                numberOfLines={bannerExpanded ? undefined : (isDesktop ? 3 : 5)}
               >
                 {banner.description}
               </Text>
+        
+              {/* Buttons Cluster */}
+              <View style={styles.bannerActionRow}>
+                <TouchableOpacity 
+                  style={styles.bannerReadMoreBtn} 
+                  onPress={() => setBannerExpanded(!bannerExpanded)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.bannerReadMoreBtnText}>
+                    {bannerExpanded ? "Show Less" : "Read More"}
+                  </Text>
+                </TouchableOpacity>
+        
+                <TouchableOpacity 
+                  style={styles.bannerPurchaseBtn} 
+                  onPress={() => Linking.openURL("https://shinrayhealth.com/product/a-l-l/")} // A.L.L – ShinrayHealth (sleepFirstAid) పేజీకి రూట్ అవుతుంది
+                  activeOpacity={0.8}
+                >
+                  <Feather name="shopping-bag" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.bannerPurchaseBtnText}>Purchase</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
+          </View>
+        )}
 
           {/* ✅ FIXED: Layout handles custom indicator colors matching design structure guidelines explicitly */}
           <View style={styles.analyticsHighlightsRow}>
@@ -547,62 +569,68 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginTop: 2,
   },
-  premiumBannerCard: {
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 28,
-    padding: 24,
-    marginBottom: 24,
+ newspaperBannerCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
     borderWidth: 1,
-    borderColor: COLORS.border,
-    ...Platform.select({
-      ios: { shadowColor: COLORS.darkSienna, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 12 },
-      android: { elevation: 2 },
-    }),
+    borderColor: "rgba(51, 105, 86, 0.08)",
+    marginVertical: 12,
+    marginBottom: 28,
+    borderRadius: 28,
+    shadowColor: "#1B2A24",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 2,
+    position: "relative",
+    overflow: "hidden",
   },
-  bannerHeaderFlexRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
+  newspaperInnerPadding: {
+    paddingHorizontal: 22,
+    paddingVertical: 20,
   },
-  bannerBadgeWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
+  newspaperBadgeContainer: {
+    backgroundColor: "#336956",
     paddingVertical: 4,
     paddingHorizontal: 12,
     borderRadius: 8,
   },
-  bannerBadgeInnerText: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
+  newspaperBadgeText: {
+    color: "#FAF9F5",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.8,
   },
-  bannerIdBadgeLabel: {
+  newspaperIdLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: COLORS.textLight,
+    color: "#576860",
     letterSpacing: 0.5,
   },
-  bannerHeadlineMainTitle: {
-    fontSize: 20,
+  newspaperHeadlineTitle: {
+    fontSize: 22,
     fontWeight: "800",
-    color: COLORS.textDark,
-    marginTop: 8,
+    color: "#1B2A24",
+    marginTop: 10,
     marginBottom: 6,
     letterSpacing: -0.3,
+    lineHeight: 26,
   },
-  bannerDividerLine: {
+  newspaperDividerLine: {
     height: 1,
     backgroundColor: "rgba(51, 105, 86, 0.08)",
     marginVertical: 10,
   },
-  bannerParagraphBodyDescription: {
+  newspaperParagraphBody: {
     fontSize: 13,
-    color: COLORS.textLight,
+    color: "#576860",
     lineHeight: 20,
     textAlign: "left",
   },
+  bannerActionRow: {  flexDirection: 'row',  alignItems: 'center',  justifyContent: 'flex-end',  gap: 12,  marginTop: 14,},
+  bannerReadMoreBtn: {  paddingVertical: 8,  paddingHorizontal: 14,  borderRadius: 20,  backgroundColor: 'rgba(51, 105, 86, 0.06)',  borderWidth: 1,  borderColor: 'rgba(51, 105, 86, 0.12)',},
+  bannerReadMoreBtnText: {  color: '#336956',  fontSize: 12,  fontWeight: '700',},
+  bannerPurchaseBtn: {  flexDirection: 'row',  alignItems: 'center',  paddingVertical: 8,  paddingHorizontal: 16,  borderRadius: 20,  backgroundColor: '#E09643',  shadowColor: '#E09643',  shadowOffset: { width: 0, height: 3 },  shadowOpacity: 0.15,  shadowRadius: 5,  elevation: 2,},
+  bannerPurchaseBtnText: {  color: '#FFFFFF',  fontSize: 12,  fontWeight: '700',},
   analyticsHighlightsRow: {
     flexDirection: "row",
     justifyContent: "space-between",

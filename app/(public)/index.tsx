@@ -25,7 +25,7 @@ const ACTIVITIES = [
 
 const REVIEWS = [
   { name: "Sarah J.", role: "Product Designer", text: "Seeing my wellbeing as a water gauge completely changed how I manage stress. It's so visual and intuitive!", rating: 5 },
-  { name: "Michael T.", role: "Software Engineer", text: "The AI tips are actually helpful. When my gauge drops to 30%, it reminds me to step away from the screen.", rating: 5 },
+  { name: "Michael T.", role: "Software Engineer", text: "The customized advice is actually helpful. When my gauge drops to 30%, it reminds me to step away from the screen.", rating: 5 },
   { name: "Priya R.", role: "Student", text: "Logging takes 10 seconds. It's the only mental wellness app I've managed to stick with for over a month.", rating: 5 },
   { name: "David L.", role: "Entrepreneur", text: "The weekly trends graph helped me realize my energy always crashes on Thursdays. Now I plan better!", rating: 5 },
   { name: "Anita K.", role: "Teacher", text: "Drains vs Gains makes so much sense. It validates my exhaustion after a tough day and helps me recover.", rating: 5 },
@@ -202,7 +202,7 @@ export default function PublicLandingPage() {
                   <View className="flex-col items-start">
                     <View className="flex-row items-center gap-3">
                       <CheckCircle2 size={18} color="#3B7563" />
-                      <Text className="text-slate-700 text-base font-medium">Smart AI recovery suggestions</Text>
+                      <Text className="text-slate-700 text-base font-medium">Smart Customized recovery suggestions</Text>
                     </View>
                     <View className="flex-row items-center gap-3 mt-3">
                       <CheckCircle2 size={18} color="#3B7563" />
@@ -238,7 +238,7 @@ export default function PublicLandingPage() {
                 <View className="mt-8 w-full bg-[#F8F6F0] rounded-2xl p-5 border border-slate-100">
                   <View className="flex-row items-center gap-2 mb-2">
                     <Sparkles size={16} color="#3B7563" />
-                    <Text className="text-sm text-[#3B7563] font-bold">Live AI Insight</Text>
+                    <Text className="text-sm text-[#3B7563] font-bold">Live Customized Insight</Text>
                   </View>
                   <Text className="text-sm text-slate-800 leading-relaxed font-medium">{getAITip(score)}</Text>
                 </View>
@@ -327,9 +327,9 @@ export default function PublicLandingPage() {
                 <View className="w-14 h-14 bg-[#F8F6F0] rounded-2xl items-center justify-center mb-6 shadow-sm border border-slate-100">
                   <BrainCircuit size={28} color="#3B7563" />
                 </View>
-                <Text className="text-2xl font-bold text-slate-900 mb-4">Percentage-Based AI</Text>
+                <Text className="text-2xl font-bold text-slate-900 mb-4">Percentage-Based Advice</Text>
                 <Text className="text-slate-600 text-lg leading-relaxed mb-6">
-                  Our AI doesn't give generic advice. If your gauge is at 20%, it suggests critical rest. If you're at 80%, it pushes you to share your energy. Get exactly what you need, when you need it.
+                  Our gauge doesn't give generic advice. If your gauge is at 20%, it suggests critical rest. If you're at 80%, it pushes you to share your energy. Get exactly what you need, when you need it.
                 </Text>
                 <View className="bg-[#F8F6F0] rounded-xl p-4 border border-slate-100">
                   <View className="flex-row items-center gap-2 mb-2">

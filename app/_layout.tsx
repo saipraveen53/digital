@@ -35,8 +35,7 @@ function RootLayoutContent() {
 
 export default function RootLayout() {
   return (
-    <React.StrictMode>
-      <GoogleOAuthProvider clientId="341709776135-fl0c2cfi1dffact5atc5snmkh4ev85fh.apps.googleusercontent.com">
+      <GoogleOAuthProvider clientId="341709776135-2gc8sr7belb8if4d19sse44dkvlr9rh7.apps.googleusercontent.com">
         <AuthProvider>
           <SubscriptionProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
@@ -48,6 +47,5 @@ export default function RootLayout() {
           </SubscriptionProvider>
         </AuthProvider>
       </GoogleOAuthProvider>
-    </React.StrictMode>
   );
 }

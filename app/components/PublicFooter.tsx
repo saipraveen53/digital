@@ -16,11 +16,9 @@ export default function PublicFooter() {
           
           <View style={{ width: isMobile ? '100%' : '40%', marginBottom: isMobile ? 20 : 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-               <Image
-                   source={require("../../assets/images/logo1.jpeg")}
-                   className="w-20 h-20 rounded-[12px]"
-                   resizeMode="cover"
-                 />
+               <View style={{ backgroundColor: "rgba(255, 255, 255, 0.92)", padding: 1, borderRadius: 10 }}> 
+                <Image source={require("../../assets/images/logo2.png")} style={styles.floatingMoonImage} resizeMode="contain" />
+              </View>
               <View style={{ justifyContent: 'center' }}>
                 <Text style={{ fontFamily: "'DM Serif Display', serif", fontSize: 28, color: 'white', lineHeight: 30 }}>
                   Wellbeing
@@ -38,7 +36,7 @@ export default function PublicFooter() {
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <Pressable style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
                 {({ hovered }) => (
-                  <FontAwesome name="twitter" size={20} color={hovered ? "#3E7B6A" : "#ffffff"} />
+                 <FontAwesome name="youtube-play" size={32} color={hovered ? "#3E7B6A" : "#ffffff"} />
                 )}
               </Pressable>
               <Pressable style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
@@ -120,3 +118,7 @@ export default function PublicFooter() {
     </View>
   );
 }
+
+const styles = {
+  floatingMoonImage: { width: 64, height: 64 }
+};

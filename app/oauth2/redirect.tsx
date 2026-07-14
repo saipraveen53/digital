@@ -17,14 +17,14 @@ export default function OAuth2RedirectHandler() {
           if (result.success) {
             router.replace('/(user)/home');
           } else {
-            router.replace('/(public)/login');
+            router.replace('/(public)');
           }
         } catch (error) {
           console.error("OAuth Redirect Token Handling Error:", error);
-          router.replace('/(public)/login');
+          router.replace('/(public)');
         }
       } else {
-        router.replace('/(public)/login');
+        router.replace('/(public)');
       }
     }
 

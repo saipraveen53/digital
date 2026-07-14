@@ -178,53 +178,51 @@ export default function RegisterScreen() {
     return null;
   };
 
-  const handleSubmitWithOtp = async () => {
-    const fullOtp = otpArray.join("");
+const handleSubmitWithOtp = async () => {
+  const fullOtp = otpArray.join("");
 
-    if (fullOtp.length < 6) {
-      setError("Please provide complete 6-digit confirmation key code");
-      return;
-    }
+  if (fullOtp.length < 6) {
+    setError("Please provide complete 6-digit confirmation key code");
+    return;
+  }
 
-    const validationErrorMsg = validateFormPayload();
-    if (validationErrorMsg) {
-      setError(validationErrorMsg);
-      return;
-    }
+  const validationErrorMsg = validateFormPayload();
+  if (validationErrorMsg) {
+    setError(validationErrorMsg);
+    return;
+  }
 
-    setError("");
-    setIsLoading(true);
+  setError("");
+  setIsLoading(true);
 
-    const todayStr = new Date().toISOString().split("T")[0];
-    const finalWakeUpISO = new Date(
-      `${todayStr}T${wakeUpTime}:00.000Z`,
-    ).toISOString();
+  // Send time as HH:MM:SS format instead of ISO datetime
+  const finalWakeUpTime = `${wakeUpTime}:00`;
 
-    const payload = {
-      name: name.trim(),
-      email: email.trim(),
-      password: password,
-      age: parseInt(age, 10),
-      gender: gender,
-      role: role,
-      wakeUpTime: finalWakeUpISO,
-      phoneNo: phoneNo.trim(),
-      guardianName: guardianName.trim(),
-      guardianPhoneNo: guardianPhoneNo.trim(),
-      others: others.trim() || "Mobile Client User",
-    };
-
-    try {
-      await rootApi.post(`/api/auth/register?otp=${fullOtp}`, payload);
-      setStep("SUCCESS");
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message || "Registration failed. Please try again.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
+  const payload = {
+    name: name.trim(),
+    email: email.trim(),
+    password: password,
+    age: parseInt(age, 10),
+    gender: gender,
+    role: role,
+    wakeUpTime: finalWakeUpTime,  // Send as "HH:MM:SS"
+    phoneNo: phoneNo.trim(),
+    guardianName: guardianName.trim(),
+    guardianPhoneNo: guardianPhoneNo.trim(),
+    others: others.trim() || "Mobile Client User",
   };
+
+  try {
+    await rootApi.post(`/api/auth/register?otp=${fullOtp}`, payload);
+    setStep("SUCCESS");
+  } catch (err: any) {
+    setError(
+      err.response?.data?.message || "Registration failed. Please try again.",
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleSelectRole = (value: string) => {
     setRole(value);

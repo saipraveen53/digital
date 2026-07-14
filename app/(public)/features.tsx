@@ -175,8 +175,8 @@ export default function Features() {
     },
     { 
       icon: (color: string) => <BrainCircuit size={28} color={color} />, 
-      title: "Personalized AI Tips", 
-      desc: "Score below 60%? AI analyzes your log and suggests specific, realistic actions to boost your day.", 
+      title: "Personalized Customized Tips", 
+      desc: "Score below 60%? customized tips analyzes your log and suggests specific, realistic actions to boost your day.", 
       tag: "AI",
       img: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=600&q=80" 
     },

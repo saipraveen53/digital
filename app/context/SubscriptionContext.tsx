@@ -1,121 +1,121 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+// app/context/SubscriptionContext.tsx
 import { jwtDecode } from "jwt-decode";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { useAuth } from "./AuthContext";
 
-interface SubscriptionContextType {
-  isSubscribed: boolean;
-  subscriptionExpiry: Date | null;
-  activateSubscription: (days: number) => Promise<void>;
-  checkAndUpdateSubscription: () => Promise<void>;
-  daysRemaining: number | null;
-}
-
-interface JWTPayload {
+interface ExtendedJWTPayload {
   role: Array<{ authority: string }>;
+  trialexpireDate?: string;      // "2026-06-20"
+  trialStatus?: string;          // "EXPIRED" or "ACTIVE"
+  trialUsed?: boolean;
+  activePlanId?: string;         
+  name?: string;
+  activePlanName?: string;       // "Free Trial" or "Monthly Premium"
+  planStatus?: string;           // "ACTIVE" or "EXPIRED"
+  expireDate?: string;           
   userId: string;
   sub: string;
   iat: number;
   exp: number;
 }
 
-const SubscriptionContext = createContext<SubscriptionContextType | undefined>(
-  undefined,
-);
+interface SubscriptionContextType {
+  isSubscribed: boolean;
+  subscriptionExpiry: Date | null;
+  daysRemaining: number | null;
+  activePlanName: string | null;
+  trialStatus: string | null;
+  planStatus: string | null;
+  checkAndUpdateSubscription: () => Promise<void>;
+  activateSubscription: (days: number) => Promise<void>; 
+  activateFreeTrial: () => Promise<void>;
+}
 
-export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
+
+export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth(); 
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscriptionExpiry, setSubscriptionExpiry] = useState<Date | null>(null);
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
+  const [activePlanName, setActivePlanName] = useState<string | null>(null);
+  const [trialStatus, setTrialStatus] = useState<string | null>(null);
+  const [planStatus, setPlanStatus] = useState<string | null>(null);
 
-  // Isolate storage space per unique identity matrices logs
-  const getStorageKey = () => (user?.id ? `@subscription_expiry_${user.id}` : null);
-
-  const calculateDaysRemaining = (expiry: Date | null): number | null => {
-    if (!expiry) return null;
+  const calculateDaysRemaining = (expiryDate: Date): number => {
     const now = new Date();
-    const diffTime = expiry.getTime() - now.getTime();
+    const diffTime = expiryDate.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
   };
 
+  // ✅ నార్మల్ లాగిన్ అప్పుడు కేవలం టోకెన్ లో ఉన్న స్టేటస్ మాత్రమే చెక్ చేస్తుంది (ఆటో-ఆక్టివేట్ చేయదు)
   const checkAndUpdateSubscription = async () => {
+    if (!user || !user.token) {
+      setIsSubscribed(false);
+      setSubscriptionExpiry(null);
+      setDaysRemaining(null);
+      setActivePlanName(null);
+      setTrialStatus(null);
+      setPlanStatus(null);
+      return;
+    }
+
     try {
-      const storageKey = getStorageKey();
+      const decoded = jwtDecode<ExtendedJWTPayload>(user.token);
+      const now = new Date();
 
-      if (!user || !storageKey) {
-        setIsSubscribed(false);
-        setSubscriptionExpiry(null);
-        setDaysRemaining(null);
-        return;
-      }
+      const tStatus = decoded.trialStatus || "EXPIRED";
+      const pStatus = decoded.planStatus || "EXPIRED";
+      const planName = decoded.activePlanName || null;
 
-      let expiryString = await AsyncStorage.getItem(storageKey);
+      setTrialStatus(tStatus);
+      setPlanStatus(pStatus);
+      setActivePlanName(planName);
 
-      // 🚀 RESTORE PIPELINE LOOP BACK UP MATRIX FOR EXISTING RETURNING PREMIUM USERS:
-      // If local storage is empty but user holds an active server session token pipeline
-      if (!expiryString && user?.token) {
-        try {
-          const decoded = jwtDecode<JWTPayload>(user.token);
-          const nowInSeconds = Math.floor(Date.now() / 1000);
-          
-          // Check if token has authority updates mapping window values
-          if (decoded.exp > nowInSeconds) {
-            // Synchronize calculated expiry timestamps based on original account initialization
-            const calculatedExpiry = new Date(decoded.exp * 1000);
-            expiryString = calculatedExpiry.toISOString();
-            
-            // Re-hydrate local caches so they dont get locked out on multi-device re-logins
-            await AsyncStorage.setItem(storageKey, expiryString);
-            console.log("[SubscriptionSync] Successfully restored tracking matrix map records.");
-          }
-        } catch (jwtErr) {
-          console.error("[SubscriptionSync] Safe recovery fallback stream failure:", jwtErr);
+      let targetExpiryDate: Date | null = null;
+      let hasValidAccess = false;
+
+      // 1. Paid Subscription యాక్టివ్‌గా ఉందో లేదో చెక్ చేస్తుంది
+      if (pStatus === "ACTIVE" && decoded.expireDate) {
+        const pExpiry = new Date(decoded.expireDate);
+        if (pExpiry > now) {
+          targetExpiryDate = pExpiry;
+          hasValidAccess = true;
+        }
+      } 
+      // 2. యూజర్ ప్లాన్స్ లో ఫ్రీ ట్రయల్ క్లిక్ చేసి ఆక్టివేట్ చేసుకుంటే ఇక్కడకు వస్తుంది
+      else if (tStatus === "ACTIVE" && decoded.trialexpireDate) {
+        const tExpiry = new Date(decoded.trialexpireDate);
+        if (tExpiry > now) {
+          targetExpiryDate = tExpiry;
+          hasValidAccess = true;
         }
       }
 
-      if (expiryString) {
-        const expiryDate = new Date(expiryString);
-        const now = new Date();
-
-        if (expiryDate > now) {
-          setIsSubscribed(true);
-          setSubscriptionExpiry(expiryDate);
-          setDaysRemaining(calculateDaysRemaining(expiryDate));
-        } else {
-          setIsSubscribed(false);
-          setSubscriptionExpiry(null);
-          setDaysRemaining(null);
-          await AsyncStorage.removeItem(storageKey);
-        }
+      if (hasValidAccess && targetExpiryDate) {
+        setIsSubscribed(true);
+        setSubscriptionExpiry(targetExpiryDate);
+        setDaysRemaining(calculateDaysRemaining(targetExpiryDate));
       } else {
         setIsSubscribed(false);
         setSubscriptionExpiry(null);
         setDaysRemaining(null);
       }
     } catch (error) {
-      console.error("[SubscriptionContext] Verification core tracks exception:", error);
+      console.error("[SubscriptionContext] Error decoding token:", error);
       setIsSubscribed(false);
     }
   };
 
+  // యూజర్ హోమ్ స్క్రీన్ ప్లాన్స్ నుండి మాన్యువల్‌గా పేమెంట్ లేదా ట్రయల్ బటన్ నొక్కినప్పుడు కాల్ అయ్యే మెథడ్స్
   const activateSubscription = async (days: number) => {
-    const storageKey = getStorageKey();
-    if (!storageKey) return;
+    await checkAndUpdateSubscription();
+  };
 
-    console.log(`[SubscriptionContext] Direct upgrade triggered dynamically for: ${days} days`);
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + days);
-
-    await AsyncStorage.setItem(storageKey, expiryDate.toISOString());
-    
-    setIsSubscribed(true);
-    setSubscriptionExpiry(expiryDate);
-    setDaysRemaining(days); 
+  const activateFreeTrial = async () => {
+    await checkAndUpdateSubscription();
   };
 
   useEffect(() => {
@@ -123,15 +123,12 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [user]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener(
-      "change",
-      (nextAppState: AppStateStatus) => {
-        if (nextAppState === "active") {
-          checkAndUpdateSubscription();
-        }
-      },
-    );
-    return () => subscription.remove();
+    const appStateSubscription = AppState.addEventListener("change", (nextAppState: AppStateStatus) => {
+      if (nextAppState === "active") {
+        checkAndUpdateSubscription();
+      }
+    });
+    return () => appStateSubscription.remove();
   }, [user]);
 
   return (
@@ -139,9 +136,13 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         isSubscribed,
         subscriptionExpiry,
-        activateSubscription,
-        checkAndUpdateSubscription,
         daysRemaining,
+        activePlanName,
+        trialStatus,
+        planStatus,
+        checkAndUpdateSubscription,
+        activateSubscription,
+        activateFreeTrial,
       }}
     >
       {children}
@@ -152,9 +153,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
 export const useSubscription = () => {
   const context = useContext(SubscriptionContext);
   if (!context) {
-    throw new Error(
-      "useSubscription must be used within a SubscriptionProvider",
-    );
+    throw new Error("useSubscription must be used within a SubscriptionProvider");
   }
   return context;
 };

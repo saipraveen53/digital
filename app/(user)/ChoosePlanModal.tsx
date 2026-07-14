@@ -19,6 +19,9 @@ interface ApiSubscriptionPlan {
   price: number;
   durationDays: number;
   status: boolean;
+  // additional fields from API response (not used in UI)
+  discountAmount?: number;
+  finalPrice?: number;
 }
 
 interface ChoosePlanModalProps {
@@ -170,6 +173,7 @@ export function ChoosePlanModal({
                         <View style={styles.priceRowWrapperContainer}>
                           <Text style={styles.planPrimaryCurrencyValueSymbol}>
                             {plan.price === 0 ? "" : "₹"}
+                            {plan.finalPrice?.toFixed(2) || plan.price.toFixed(2)}
                           </Text>
                           <Text style={styles.planNumericalPriceBoldText}>
                             {plan.price === 0 ? "FREE" : plan.price}

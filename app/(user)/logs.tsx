@@ -400,15 +400,17 @@ export default function LogsScreen() {
                         -{item.activityPercenage}%
                       </Text>
 
-                      {loadingStates[item.activityId] ? (
-                        <View style={styles.plusTileIconActionButton}>
+                     <TouchableOpacity 
+                        style={{ marginLeft: 8, padding: 6 }} 
+                        onPress={() => handleDeleteActivity(item.activityId)}
+                        disabled={toggleLoadingStates[item.activityId]}
+                      >
+                        {toggleLoadingStates[item.activityId] ? (
                           <ActivityIndicator size="small" color={COLORS.drainColor} />
-                        </View>
-                      ) : (
-                        <TouchableOpacity style={styles.plusTileIconActionButton} onPress={() => handleCompleteActivity(item.activityId, item.activityName)}>
-                          <Feather name="plus" size={14} color={COLORS.primary} />
-                        </TouchableOpacity>
-                      )}
+                        ) : (
+                          <Feather name="trash-2" size={16} color={COLORS.drainColor} />
+                        )}
+                      </TouchableOpacity>
 
                       <TouchableOpacity 
                         style={{ marginLeft: 8, padding: 6 }}
