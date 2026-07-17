@@ -13,9 +13,9 @@
     },
     "android": {
       "adaptiveIcon": {
-      "backgroundColor": "#ffffff", 
-      "foregroundImage": "./assets/images/logo3.jpeg",
-      "monochromeImage": "./assets/images/logo3.jpeg"
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/images/logo3.jpeg",
+        "monochromeImage": "./assets/images/logo3.jpeg"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -49,9 +49,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "0cb98f85-89a2-4d4a-ab12-16bac2f46814"
+        "projectId": "8a103150-8229-47a1-b695-7fde7330453e"
       }
     },
-    "owner": "saipraveen53"
+    "owner": "shinrayhealth"
   }
 }

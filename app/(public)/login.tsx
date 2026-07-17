@@ -26,9 +26,7 @@ import { rootApi } from '../utils/axiosInstance';
 // NATIVE GOOGLE SIGN-IN IMPORTS
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
-// GOOGLE CONFIGURATION (App load ayyaka okkasari run aithe chalu)
 GoogleSignin.configure({
-  // MEE GOOGLE CLOUD CONSOLE NUNDI "WEB CLIENT ID" IKKADA PETTALI
   webClientId: '341709776135-2gc8sr7belb8if4d19sse44dkvlr9rh7.apps.googleusercontent.com',
   offlineAccess: true,
 });
@@ -79,13 +77,7 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     try {
       await GoogleSignin.hasPlayServices();
-  
-      // 🔥 IKKADA MARCHU:
-      // Nuvvu sign in avvadaniki mundu, okasari GoogleSignin.signOut() 
-      // call chesi, malli signIn() cheste Google pakka account picker chupistundi.
-      // Idhi prathi saari user ki kotha account select chesukune option istundi.
-      
-      await GoogleSignin.signOut(); // Iddhi previous session ni clear chesthundi
+      await GoogleSignin.signOut(); 
       
       const userInfo = await GoogleSignin.signIn();
       

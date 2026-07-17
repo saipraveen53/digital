@@ -19,7 +19,7 @@ const getToken = async (): Promise<string | null> => {
 const createAxiosInstance = (baseURL: string): AxiosInstance => {
   const instance: AxiosInstance = axios.create({
     baseURL: baseURL,
-    timeout: 15000,
+    timeout: 10000,
     headers: {
       'Content-Type': 'application/json',
     },

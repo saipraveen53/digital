@@ -328,9 +328,6 @@ export default function SettingsScreen() {
                 <Text style={[styles.profileMainHeadingNameText, { color: COLORS.textDark }]}>{profile?.name || 'Wellbeing User'}</Text>
                 <Text style={[styles.profileSubtextEmailText, { color: COLORS.textLight }]}>{profile?.email || 'user@example.com'}</Text>
                 
-                <View style={styles.premiumTierBadgeWrapper}>
-                  <Feather name="crown" size={12} color={COLORS.primary} style={{ marginRight: 4 }} />
-                </View>
 
                 <View style={styles.metadataInlinePropertiesContainerList}>
                   <View style={styles.metadataRowItemFlex}><Text style={[styles.metadataItemLabel, { color: COLORS.textLight }]}>Age Index</Text><Text style={[styles.metadataItemValueText, { color: COLORS.textDark }]}>{profile?.age || 23} Yrs</Text></View>

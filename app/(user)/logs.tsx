@@ -400,17 +400,15 @@ export default function LogsScreen() {
                         -{item.activityPercenage}%
                       </Text>
 
-                     <TouchableOpacity 
-                        style={{ marginLeft: 8, padding: 6 }} 
-                        onPress={() => handleDeleteActivity(item.activityId)}
-                        disabled={toggleLoadingStates[item.activityId]}
-                      >
-                        {toggleLoadingStates[item.activityId] ? (
-                          <ActivityIndicator size="small" color={COLORS.drainColor} />
-                        ) : (
-                          <Feather name="trash-2" size={16} color={COLORS.drainColor} />
-                        )}
-                      </TouchableOpacity>
+                    {loadingStates[item.activityId] ? (
+                        <View style={styles.plusTileIconActionButton}>
+                          <ActivityIndicator size="small" color={COLORS.primary} />
+                        </View>
+                      ) : (
+                        <TouchableOpacity style={styles.plusTileIconActionButton} onPress={() => handleCompleteActivity(item.activityId, item.activityName)}>
+                          <Feather name="plus" size={14} color={COLORS.primary} />
+                        </TouchableOpacity>
+                      )}
 
                       <TouchableOpacity 
                         style={{ marginLeft: 8, padding: 6 }}
@@ -807,13 +805,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  completionOverlayCenteredDimmer: {
-    flex: 1,
-    backgroundColor: "rgba(17, 35, 29, 0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
+
+  
   completionSuccessCardAlert: {
     backgroundColor: "#FFFFFF",
     borderRadius: 32,

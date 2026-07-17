@@ -28,9 +28,9 @@ import { rootApi } from "../utils/axiosInstance";
 import { ChoosePlanModal } from "./ChoosePlanModal";
 import { WaterGauge } from "./WaterGauge";
 
-import { router } from "expo-router";
 import { Image } from "react-native";
 import RazorpayCheckout from "react-native-razorpay";
+import { LinearGradient } from "expo-linear-gradient";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const isDesktop = screenWidth >= 768;
@@ -596,14 +596,14 @@ const handleSelectPlan = (plan: ApiSubscriptionPlan) => {
                             {isDrain ? "" : "+"}{log.scoreChange}%
                           </Text>
                         </View>
-                        {loadingStates[log.activityLogId] ? (
+                        {loadingStates[log.activityId] ? (
                           <View style={styles.plusTileIconActionButton}>
                             <ActivityIndicator size="small" color={COLORS.primary} />
                           </View>
                         ) : (
                           <TouchableOpacity 
                             style={styles.plusTileIconActionButton} 
-                            onPress={() => handleCompleteActivity(log.activityLogId, log.activityName)}
+                            onPress={() => handleCompleteActivity(log.activityId, log.activityName)}
                           >
                             <Feather name="plus" size={14} color={COLORS.primary} />
                           </TouchableOpacity>
@@ -631,6 +631,36 @@ const handleSelectPlan = (plan: ApiSubscriptionPlan) => {
       <View style={{ backgroundColor: wellbeingStatus.bg, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, justifyContent: "center", alignItems: "center", alignSelf: "flex-start" }}>
         <Text style={{ color: wellbeingStatus.color, fontSize: 13, fontWeight: "700" }}>{wellbeingStatus.label}</Text>
       </View>
+       {activitiesListSource && activitiesListSource.length > 0 && (
+                  (() => {
+                    const lastActivity = activitiesListSource[0];
+                    const isLastDrain = lastActivity.activityType === "DRAIN";
+
+                    return (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+                        <Feather
+                          name={isLastDrain ? "trending-down" : "trending-up"}
+                          size={15}
+                          color={isLastDrain ? COLORS.critical : COLORS.excellent}
+                        />
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: "600",
+                            color: isLastDrain ? COLORS.critical : COLORS.excellent,
+                            lineHeight: 16,
+                          }}
+                        >
+                          {isLastDrain ? "" : "+"}{lastActivity.scoreChange}% from last{"\n"}activity
+                        </Text>
+                      </View>
+                    );
+                  })()
+                )}
+
+                <Text style={{ fontSize: 13, fontWeight: "600", color: COLORS.textDark, marginTop: 4 }}>
+                  Activities logged: {activitiesListSource.length}
+                </Text>
 
       <Pressable
         onPress={() => isSubscribed ? setLogModalVisible(true) : Alert.alert("Subscription Required", "Please activate a plan first.")}
@@ -773,17 +803,55 @@ const handleSelectPlan = (plan: ApiSubscriptionPlan) => {
                Free Trial Activated!
              </Text>
              <Text style={[styles.modalSuccessBodyParagraphText, { color: COLORS.textLight, marginTop: 8 }]}>
-               Your complimentary trial has been successfully set up. Now you need to logout to start Free Trail.
+               Your complimentary trial has been successfully set up. Now you need to logout to Activate start Free Trail.
              </Text>
              <TouchableOpacity 
                style={[styles.modalDismissCTAAnchorButton, { backgroundColor: COLORS.primary, marginTop: 16 }]} 
-               onPress={() => router.replace('/login')}
+               onPress={logout}
              >
                <Text style={styles.modalDismissCTAAnchorButtonText}>Explore Features</Text>
              </TouchableOpacity>
            </View>
          </View>
        </Modal>
+         <Modal animationType="fade" transparent visible={paymentSuccessModalVisible} onRequestClose={() =>  setPaymentSuccessModalVisible(false)}>
+         <View style={styles.modalCenterDimmerOverlayView}>
+           <View style={styles.modalSuccessCardContainer}>
+             <View style={[styles.modalCheckCircleIconGraphicBadge, { backgroundColor: COLORS.primary }]}>
+               <Feather name="gift" size={28} color="white" />
+             </View>
+             <Text style={[styles.modalSuccessHeadingMainTitleText, { color: COLORS.textDark, textAlign: 'center' }]}>
+               Your Plan was  Activated!
+             </Text>
+             <Text style={[styles.modalSuccessBodyParagraphText, { color: COLORS.textLight, marginTop: 8 }]}>
+               Your plan has been successfully set up. Now you need to logout to Activate your plan.
+             </Text>
+             <TouchableOpacity 
+               style={[styles.modalDismissCTAAnchorButton, { backgroundColor: COLORS.primary, marginTop: 16 }]} 
+               onPress={logout}
+             >
+               <Text style={styles.modalDismissCTAAnchorButtonText}>Explore Features</Text>
+             </TouchableOpacity>
+           </View>
+         </View>
+       </Modal>
+
+       <Modal animationType="fade" transparent={true} visible={paymentFailureModalVisible} onRequestClose={() => setPaymentFailureModalVisible(false)}>
+               <View style={styles.completionOverlayCenteredDimmer}>
+                 <View style={styles.completionSuccessCardAlert}>
+                   <LinearGradient colors={["#DC2626", "#EF4444"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.completionGraphicBadgeWrapper}>
+                     <Feather name="trash-2" size={32} color="#FFFFFF" />
+                   </LinearGradient>
+                   <Text style={[styles.completionSuccessHeadingTitle, { color: COLORS.textDark }]}>Your Payment Failed</Text>
+                   <Text style={[styles.completionSuccessParagraphBody, { color: COLORS.textLight }]}>
+                     The activity has been completely removed from your active layout structure.
+                   </Text>
+                   <TouchableOpacity style={[styles.completionDismissMainAnchorCTA, { backgroundColor: COLORS.primary }]} activeOpacity={0.8} onPress={() => setPaymentFailureModalVisible(false)}>
+                     <Text style={[styles.completionDismissAnchorText, { color: '#FFFFFF' }]}>Close</Text>
+                   </TouchableOpacity>
+                 </View>
+               </View>
+             </Modal>
 
       {/* Choose Plan Modal */}
       <ChoosePlanModal
@@ -850,6 +918,13 @@ const styles = StyleSheet.create({
   statsCardMainRowFlex: { width: "100%", flexDirection: "row", gap: 14, marginTop: 20, justifyContent: "space-between" },
   statsCardMobileGridFlex: { width: "100%", flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 20, justifyContent: "space-between" },
   styles: { flex: 1 },
+  completionOverlayCenteredDimmer: {flex: 1,backgroundColor: "rgba(17, 35, 29, 0.4)",justifyContent: "center",alignItems: "center",padding: 24,},
+  completionSuccessCardAlert: {backgroundColor: "#FFFFFF",borderRadius: 32,padding: 28,maxWidth: 380,width: "100%",alignItems: "center",borderWidth: 1,borderColor: COLORS.border,...Platform.select({  ios: { shadowColor: COLORS.darkSienna, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.04, shadowRadius: 24 },  android: { elevation: 5 },}),},
+  completionGraphicBadgeWrapper: {width: 64,height: 64,borderRadius: 22,alignItems: "center",justifyContent: "center",marginBottom: 20,},
+  completionSuccessHeadingTitle: {fontSize: 20,fontWeight: "800",marginBottom: 8,textAlign: "center",},
+  completionSuccessParagraphBody: {fontSize: 14,textAlign: "center",lineHeight: 21,marginBottom: 24,paddingHorizontal: 8,},
+  completionDismissMainAnchorCTA: {paddingVertical: 14,borderRadius: 16,width: "100%",alignItems: "center",justifyContent: "center",},
+  completionDismissAnchorText: {fontWeight: "700",fontSize: 14,},
   plusTileIconActionButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(51, 105, 86, 0.08)", alignItems: "center", justifyContent: "center" },
   statsMiniGridTile: { flexDirection: "row", alignItems: "center", backgroundColor: COLORS.cardBg, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: COLORS.border, borderLeftWidth: 5, width: isDesktop ? "23%" : "48%", minHeight: 65 },
   statsTileIconWrapperCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.03)", alignItems: "center", justifyContent: "center" },
