@@ -28,9 +28,9 @@ import { rootApi } from "../utils/axiosInstance";
 import { ChoosePlanModal } from "./ChoosePlanModal";
 import { WaterGauge } from "./WaterGauge";
 
+import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "react-native";
 import RazorpayCheckout from "react-native-razorpay";
-import { LinearGradient } from "expo-linear-gradient";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const isDesktop = screenWidth >= 768;
@@ -105,7 +105,7 @@ interface ApiTipLogItem {
 }
 
 export default function UserHome() {
-  const { user,logout } = useAuth();
+  const { user, logout } = useAuth();
   const {
     isSubscribed,
     activateFreeTrial,
@@ -124,12 +124,13 @@ export default function UserHome() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
+  const [hasDismissedPlanModal, setHasDismissedPlanModal] = useState(false); // ✅ మోడల్ X క్లిక్ చేస్తే మళ్లీ రాకుండా సేఫ్టీ చెక్
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [apiPlans, setApiPlans] = useState<ApiSubscriptionPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [trialSuccessModalVisible, setTrialSuccessModalVisible] = useState(false);
-  const [trialProcessing, setTrialProcessing] = useState(false); // separate from payment processing
+  const [trialProcessing, setTrialProcessing] = useState(false);
 
   const [paymentSuccessModalVisible, setPaymentSuccessModalVisible] = useState(false);
   const [paymentFailureModalVisible, setPaymentFailureModalVisible] = useState(false);
@@ -207,13 +208,14 @@ export default function UserHome() {
     }
   }, [userId]);
 
+  // ✅ యూజర్ సబ్‌స్క్రైబ్ కాకపోతేనే మరియు మోడల్ క్లోజ్ చేయకపోతేనే ఓపెన్ అవుతుంది (లూప్ ఉండదు)
   useEffect(() => {
     if (userId && !globalLoading) {
-      if (!isSubscribed) {
+      if (!isSubscribed && !hasDismissedPlanModal) {
         setSubscriptionModalVisible(true);
       }
     }
-  }, [userId, isSubscribed, globalLoading]);
+  }, [userId, isSubscribed, globalLoading, hasDismissedPlanModal]);
 
   const fetchHomeCoreData = async () => {
     setGlobalLoading(true);
@@ -225,7 +227,6 @@ export default function UserHome() {
       setScoreData(scoreRes.data || null);
 
       const activitiesRes = await rootApi.get<RecentActivityLog[]>("/api/user/recent-activities");
-      // ✅ Safe validation array mapping logic to prevent undefined map krashes
       const rawActivities = Array.isArray(activitiesRes.data) ? activitiesRes.data : [];
       setRecentActivities(rawActivities);
 
@@ -235,7 +236,6 @@ export default function UserHome() {
       }
 
       const res = await rootApi.get<ApiSubscriptionPlan[]>("/api/admin/getByStatus?status=true");
-      // ✅ Safe verification step array map mapping filters definition
       const rawPlans = Array.isArray(res.data) ? res.data : [];
       const activePlans = rawPlans.filter((p) => p.status === true);
       setApiPlans(activePlans);
@@ -278,7 +278,6 @@ export default function UserHome() {
     setPlansLoading(true);
     try {
       const res = await rootApi.get<ApiSubscriptionPlan[]>("/api/admin/getByStatus?status=true");
-      // ✅ Safe fallback stream resolution check array mapping pipeline
       const rawPlans = Array.isArray(res.data) ? res.data : [];
       const activePlans = rawPlans.filter((p) => p.status === true);
       setApiPlans(activePlans);
@@ -315,10 +314,11 @@ export default function UserHome() {
       fetchHomeCoreData();
     } catch (err) {
       console.error("Submission rejected:", err);
-    } bits: {
+    } finally {
       setActionLoading(false);
     }
   };
+
   const handleCompleteActivity = async (activityId: string, activityName: string) => {
     setLoadingStates((prev) => ({ ...prev, [activityId]: true }));
     try {
@@ -334,41 +334,40 @@ export default function UserHome() {
       setLoadingStates((prev) => ({ ...prev, [activityId]: false }));
     }
   };
-const handleActivateFreeTrial = async (subId: string) => {
-  const selectedPlanDetails = apiPlans.find(p => p.subId === subId);
-  const isActualFreeTrial = selectedPlanDetails?.subName.toLowerCase().includes("trial") || selectedPlanDetails?.price === 0;
 
-  if (!isActualFreeTrial) {
-    Alert.alert("Invalid Request", "This action path is strictly limited to trial validations.");
-    return;
-  }
+  const handleActivateFreeTrial = async (subId: string) => {
+    const selectedPlanDetails = apiPlans.find(p => p.subId === subId);
+    const isActualFreeTrial = selectedPlanDetails?.subName.toLowerCase().includes("trial") || selectedPlanDetails?.price === 0;
 
-  setTrialProcessing(true); 
-  try {
-    const response = await rootApi.post(`/api/admin/activate-trial/${subId}`);
-    
-    // Success scenario
-    await activateFreeTrial(); 
-    setSubscriptionModalVisible(false);
-    setTrialSuccessModalVisible(true); 
-    await fetchHomeCoreData();
-
-  } catch (err: any) {
-    // 🔥 FIXED: If backend returns 400 (already active), treat it as success locally
-    if (err.response?.status === 400) {
-      console.log("Subscription already active on backend, syncing locally...");
-      await activateFreeTrial(); // Locally locks unlock avthayi
-      setSubscriptionModalVisible(false);
-      await fetchHomeCoreData();
-    } else {
-      console.error("Trial activation failed:", err);
-      setPaymentErrorMessage("Could not process free trial activation.");
-      setPaymentFailureModalVisible(true);
+    if (!isActualFreeTrial) {
+      Alert.alert("Invalid Request", "This action path is strictly limited to trial validations.");
+      return;
     }
-  } finally {
-    setTrialProcessing(false);
-  }
-};
+
+    setTrialProcessing(true); 
+    try {
+      await rootApi.post(`/api/admin/activate-trial/${subId}`);
+      
+      await activateFreeTrial(); 
+      setSubscriptionModalVisible(false);
+      setTrialSuccessModalVisible(true); 
+      await fetchHomeCoreData();
+    } catch (err: any) {
+      if (err.response?.status === 400) {
+        console.log("Subscription already active on backend, syncing locally...");
+        await activateFreeTrial();
+        setSubscriptionModalVisible(false);
+        setTrialSuccessModalVisible(true);
+        await fetchHomeCoreData();
+      } else {
+        console.error("Trial activation failed:", err);
+        setPaymentErrorMessage("Could not process free trial activation.");
+        setPaymentFailureModalVisible(true);
+      }
+    } finally {
+      setTrialProcessing(false);
+    }
+  };
 
   const initiatePayment = async (plan: ApiSubscriptionPlan) => {
     setPaymentProcessing(true);
@@ -480,15 +479,15 @@ const handleActivateFreeTrial = async (subId: string) => {
     }
   };
 
-const handleSelectPlan = (plan: ApiSubscriptionPlan) => {
-  setSelectedPlan(plan.subId);
-  const isFreeTrial = plan.subName.toLowerCase().includes("trial") || plan.price === 0;
-  if (isFreeTrial) {
-    handleActivateFreeTrial(plan.subId); 
-  } else {
-    initiatePayment(plan); 
-  }
-};
+  const handleSelectPlan = (plan: ApiSubscriptionPlan) => {
+    setSelectedPlan(plan.subId);
+    const isFreeTrial = plan.subName.toLowerCase().includes("trial") || plan.price === 0;
+    if (isFreeTrial) {
+      handleActivateFreeTrial(plan.subId); 
+    } else {
+      initiatePayment(plan); 
+    }
+  };
 
   const ballParallax1 = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(scrollY.value, [0, screenHeight], [0, -220]) }] }));
   const ballParallax2 = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(scrollY.value, [0, screenHeight], [140, -110]) }] }));
@@ -516,65 +515,68 @@ const handleSelectPlan = (plan: ApiSubscriptionPlan) => {
         <View style={[contentContainerStyle, { paddingHorizontal: isDesktop ? 24 : 16, paddingTop: 24, position: "relative", zIndex: 3 }]}>
           
           {/* Header */}
-        <View style={[styles.headerRow, !isDesktop && { flexDirection: "column", alignItems: "flex-start", gap: 12 }]}>
-          <View style={{ flex: 1 }}>
-            <View style={styles.brandTitleContainer}>
-              <Image source={require("../../assets/images/logo2.png")} style={styles.brandLogoImage} resizeMode="cover" />
-              <Text style={[styles.brandText, { color: COLORS.textDark }]}>Wellbeing Gauge</Text>
-              
-              {/* ✅ Active Days Remaining Header Badge */}
-              <View style={{ backgroundColor: isSubscribed ? "rgba(51, 105, 86, 0.1)" : "rgba(220, 38, 38, 0.1)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginLeft: 8 }}>
-                <Text style={{ fontSize: 12, fontWeight: "700", color: isSubscribed ? COLORS.primary : COLORS.critical }}>
-                  {isSubscribed ? `${daysRemaining} Days Left` : "Expired / Locked"}
-                </Text>
+          <View style={[styles.headerRow, !isDesktop && { flexDirection: "column", alignItems: "flex-start", gap: 12 }]}>
+            <View style={{ flex: 1 }}>
+              <View style={styles.brandTitleContainer}>
+                <Image source={require("../../assets/images/logo2.png")} style={styles.brandLogoImage} resizeMode="cover" />
+                <Text style={[styles.brandText, { color: COLORS.textDark }]}>Wellbeing Gauge</Text>
+                
+                {/* Active Days Remaining Header Badge */}
+                <View style={{ backgroundColor: isSubscribed ? "rgba(51, 105, 86, 0.1)" : "rgba(220, 38, 38, 0.1)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginLeft: 8 }}>
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: isSubscribed ? COLORS.primary : COLORS.critical }}>
+                    {isSubscribed ? `${daysRemaining} Days Left` : "Expired / Locked"}
+                  </Text>
+                </View>
               </View>
+              <Text style={[styles.greetingText, { color: COLORS.textLight }, !isDesktop && { fontSize: 24 }]}>Welcome back,</Text>
+              <Text style={[styles.greetingText, { color: COLORS.textDark, fontWeight: "600", marginTop: 2 }, !isDesktop && { fontSize: 24 }]}>{user?.name || "Nishi"}</Text>
             </View>
-            <Text style={[styles.greetingText, { color: COLORS.textLight }, !isDesktop && { fontSize: 24 }]}>Welcome back,</Text>
-            <Text style={[styles.greetingText, { color: COLORS.textDark, fontWeight: "600", marginTop: 2 }, !isDesktop && { fontSize: 24 }]}>{user?.name || "Nishi"}</Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-  <TouchableOpacity 
-    onPress={() => setSubscriptionModalVisible(true)} 
-    style={[styles.viewPlansButton, { backgroundColor: COLORS.primary }]} 
-    activeOpacity={0.8}
-  >
-    <Feather name="credit-card" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-    <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 13 }}>View Plans</Text>
-  </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <TouchableOpacity 
+                onPress={() => {
+                  setHasDismissedPlanModal(false);
+                  setSubscriptionModalVisible(true);
+                }} 
+                style={[styles.viewPlansButton, { backgroundColor: COLORS.primary }]} 
+                activeOpacity={0.8}
+              >
+                <Feather name="credit-card" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 13 }}>View Plans</Text>
+              </TouchableOpacity>
 
-  <TouchableOpacity 
-    onPress={logout}
-    style={[styles.logoutButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]}
-    activeOpacity={0.8}
-  >
-    <Feather name="log-out" size={14} color={COLORS.critical} />
-  </TouchableOpacity>
-</View>
-        </View>
+              <TouchableOpacity 
+                onPress={logout}
+                style={[styles.logoutButton, { backgroundColor: 'rgba(220, 38, 38, 0.1)' }]}
+                activeOpacity={0.8}
+              >
+                <Feather name="log-out" size={14} color={COLORS.critical} />
+              </TouchableOpacity>
+            </View>
+          </View>
 
           {/* Dashboard Grid */}
           <View style={[styles.dashboardGridContainer, { flexDirection: isDesktop ? "row" : "column-reverse", gap: 20 }]}>
             
             {/* Left Panel */}
-           <View style={[styles.secondaryCardLayout, !isDesktop && { width: "100%" }, { maxHeight: 440, position: "relative", overflow: "hidden" }]}>
-             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-               <Text style={[styles.sectionHeadingTitle, { color: COLORS.textDark }]}>Recent Activities</Text>
-               <Feather name={isSubscribed ? "unlock" : "lock"} size={16} color={isSubscribed ? COLORS.primary : COLORS.critical} />
-             </View>
-         
-             {/* ✅ Locked Overlay Context Layer Design */}
-             {!isSubscribed && (
-               <View style={{ position: "absolute", top: 50, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(250, 249, 245, 0.85)", zIndex: 10, justifyContent: "center", alignItems: "center", padding: 16 }}>
-                 <View style={{ backgroundColor: "#FFFFFF", padding: 16, borderRadius: 24, alignItems: "center", borderWidth: 1, borderColor: COLORS.border, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 }}>
-                   <Feather name="lock" size={24} color={COLORS.secondary} style={{ marginBottom: 8 }} />
-                   <Text style={{ fontSize: 14, fontWeight: "700", color: COLORS.textDark, textAlign: "center" }}>Activity Logs Locked</Text>
-                   <Text style={{ fontSize: 11, color: COLORS.textLight, textAlign: "center", marginTop: 4, paddingHorizontal: 10 }}>Please unlock a subscription plan to review metrics history.</Text>
-                 </View>
-               </View>
-             )}
-         
-             <ScrollView nestedScrollEnabled={true} showsVerticalScrollIndicator={true} contentContainerStyle={{ gap: 14, paddingRight: 4, opacity: isSubscribed ? 1 : 0.2 }}>
-               {recentActivities.length === 0 ? (
+            <View style={[styles.secondaryCardLayout, !isDesktop && { width: "100%" }, { maxHeight: 440, position: "relative", overflow: "hidden" }]}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <Text style={[styles.sectionHeadingTitle, { color: COLORS.textDark }]}>Recent Activities</Text>
+                <Feather name={isSubscribed ? "unlock" : "lock"} size={16} color={isSubscribed ? COLORS.primary : COLORS.critical} />
+              </View>
+          
+              {/* Locked Overlay Context Layer Design */}
+              {!isSubscribed && (
+                <View style={{ position: "absolute", top: 50, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(250, 249, 245, 0.85)", zIndex: 10, justifyContent: "center", alignItems: "center", padding: 16 }}>
+                  <View style={{ backgroundColor: "#FFFFFF", padding: 16, borderRadius: 24, alignItems: "center", borderWidth: 1, borderColor: COLORS.border, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 }}>
+                    <Feather name="lock" size={24} color={COLORS.secondary} style={{ marginBottom: 8 }} />
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: COLORS.textDark, textAlign: "center" }}>Activity Logs Locked</Text>
+                    <Text style={{ fontSize: 11, color: COLORS.textLight, textAlign: "center", marginTop: 4, paddingHorizontal: 10 }}>Please unlock a subscription plan to review metrics history.</Text>
+                  </View>
+                </View>
+              )}
+          
+              <ScrollView nestedScrollEnabled={true} showsVerticalScrollIndicator={true} contentContainerStyle={{ gap: 14, paddingRight: 4, opacity: isSubscribed ? 1 : 0.2 }}>
+                {recentActivities.length === 0 ? (
                   <View style={styles.emptyStateContainer}>
                     <Text style={styles.emptyStateText}>No recent activities yet</Text>
                   </View>
@@ -612,26 +614,25 @@ const handleSelectPlan = (plan: ApiSubscriptionPlan) => {
                     );
                   })
                 )}
-             </ScrollView>
-           </View>
+              </ScrollView>
+            </View>
 
             {/* Center Panel */}
-           <View style={[styles.tankCardCenter, !isDesktop && { width: "100%", minHeight: 320 }, { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 28, gap: 16 }]}>
-    {/* WaterGauge section code stays the same... */}
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginLeft: 50 }}>
-      <WaterGauge percentage={Math.min(currentScore, 100)} size={isDesktop ? 160 : 140} animated={true} />
-    </View>
+            <View style={[styles.tankCardCenter, !isDesktop && { width: "100%", minHeight: 320 }, { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 28, gap: 16 }]}>
+              <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginLeft: 50 }}>
+                <WaterGauge percentage={Math.min(currentScore, 100)} size={isDesktop ? 160 : 140} animated={true} />
+              </View>
 
-    <View style={{ flex: 1.1, flexDirection: "column", justifyContent: "center", alignItems: "flex-start", gap: 10 }}>
-      <View>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: COLORS.textLight, letterSpacing: -0.1, marginTop: 2 }}>Wellbeing Score</Text>
-        <Text style={{ fontSize: 44, fontWeight: "800", color: COLORS.textDark, marginTop: 2, fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' }}>{`${currentScore}%`}</Text>
-      </View>
+              <View style={{ flex: 1.1, flexDirection: "column", justifyContent: "center", alignItems: "flex-start", gap: 10 }}>
+                <View>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: COLORS.textLight, letterSpacing: -0.1, marginTop: 2 }}>Wellbeing Score</Text>
+                  <Text style={{ fontSize: 44, fontWeight: "800", color: COLORS.textDark, marginTop: 2, fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' }}>{`${currentScore}%`}</Text>
+                </View>
 
-      <View style={{ backgroundColor: wellbeingStatus.bg, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, justifyContent: "center", alignItems: "center", alignSelf: "flex-start" }}>
-        <Text style={{ color: wellbeingStatus.color, fontSize: 13, fontWeight: "700" }}>{wellbeingStatus.label}</Text>
-      </View>
-       {activitiesListSource && activitiesListSource.length > 0 && (
+                <View style={{ backgroundColor: wellbeingStatus.bg, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, justifyContent: "center", alignItems: "center", alignSelf: "flex-start" }}>
+                  <Text style={{ color: wellbeingStatus.color, fontSize: 13, fontWeight: "700" }}>{wellbeingStatus.label}</Text>
+                </View>
+                {activitiesListSource && activitiesListSource.length > 0 && (
                   (() => {
                     const lastActivity = activitiesListSource[0];
                     const isLastDrain = lastActivity.activityType === "DRAIN";
@@ -662,16 +663,15 @@ const handleSelectPlan = (plan: ApiSubscriptionPlan) => {
                   Activities logged: {activitiesListSource.length}
                 </Text>
 
-      <Pressable
-        onPress={() => isSubscribed ? setLogModalVisible(true) : Alert.alert("Subscription Required", "Please activate a plan first.")}
-        style={[styles.actionCTAButton, { backgroundColor: isSubscribed ? COLORS.primary : "#A0A8A4", opacity: isSubscribed ? 1 : 0.7, paddingVertical: 10, paddingHorizontal: 20, marginTop: 6 }]}
-      >
-        {/* ✅ Dynamic Lock icon design inside Button CTA */}
-        <Feather name={isSubscribed ? "plus" : "lock"} size={14} color="white" style={{ marginRight: 6 }} />
-        <Text style={[styles.actionCTAButtonText, { fontSize: 13 }]}>{isSubscribed ? "Log Activity" : "Locked"}</Text>
-      </Pressable>
-    </View>
-  </View>
+                <Pressable
+                  onPress={() => isSubscribed ? setLogModalVisible(true) : Alert.alert("Subscription Required", "Please activate a plan first.")}
+                  style={[styles.actionCTAButton, { backgroundColor: isSubscribed ? COLORS.primary : "#A0A8A4", opacity: isSubscribed ? 1 : 0.7, paddingVertical: 10, paddingHorizontal: 20, marginTop: 6 }]}
+                >
+                  <Feather name={isSubscribed ? "plus" : "lock"} size={14} color="white" style={{ marginRight: 6 }} />
+                  <Text style={[styles.actionCTAButtonText, { fontSize: 13 }]}>{isSubscribed ? "Log Activity" : "Locked"}</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
 
           {/* Stats Grid */}
@@ -792,66 +792,68 @@ const handleSelectPlan = (plan: ApiSubscriptionPlan) => {
         </View>
       </Modal>
 
-      {/* ✅ Free Trial Success Modal */}
-       <Modal animationType="fade" transparent visible={trialSuccessModalVisible} onRequestClose={() => setTrialSuccessModalVisible(false)}>
-         <View style={styles.modalCenterDimmerOverlayView}>
-           <View style={styles.modalSuccessCardContainer}>
-             <View style={[styles.modalCheckCircleIconGraphicBadge, { backgroundColor: COLORS.primary }]}>
-               <Feather name="gift" size={28} color="white" />
-             </View>
-             <Text style={[styles.modalSuccessHeadingMainTitleText, { color: COLORS.textDark, textAlign: 'center' }]}>
-               Free Trial Activated!
-             </Text>
-             <Text style={[styles.modalSuccessBodyParagraphText, { color: COLORS.textLight, marginTop: 8 }]}>
-               Your complimentary trial has been successfully set up. Now you need to logout to Activate start Free Trail.
-             </Text>
-             <TouchableOpacity 
-               style={[styles.modalDismissCTAAnchorButton, { backgroundColor: COLORS.primary, marginTop: 16 }]} 
-               onPress={logout}
-             >
-               <Text style={styles.modalDismissCTAAnchorButtonText}>Explore Features</Text>
-             </TouchableOpacity>
-           </View>
-         </View>
-       </Modal>
-         <Modal animationType="fade" transparent visible={paymentSuccessModalVisible} onRequestClose={() =>  setPaymentSuccessModalVisible(false)}>
-         <View style={styles.modalCenterDimmerOverlayView}>
-           <View style={styles.modalSuccessCardContainer}>
-             <View style={[styles.modalCheckCircleIconGraphicBadge, { backgroundColor: COLORS.primary }]}>
-               <Feather name="gift" size={28} color="white" />
-             </View>
-             <Text style={[styles.modalSuccessHeadingMainTitleText, { color: COLORS.textDark, textAlign: 'center' }]}>
-               Your Plan was  Activated!
-             </Text>
-             <Text style={[styles.modalSuccessBodyParagraphText, { color: COLORS.textLight, marginTop: 8 }]}>
-               Your plan has been successfully set up. Now you need to logout to Activate your plan.
-             </Text>
-             <TouchableOpacity 
-               style={[styles.modalDismissCTAAnchorButton, { backgroundColor: COLORS.primary, marginTop: 16 }]} 
-               onPress={logout}
-             >
-               <Text style={styles.modalDismissCTAAnchorButtonText}>Explore Features</Text>
-             </TouchableOpacity>
-           </View>
-         </View>
-       </Modal>
+      {/* ✅ Free Trial Success Modal (మీరు అడిగినట్టు పాత `logout` అలానే ఉంచాను) */}
+      <Modal animationType="fade" transparent visible={trialSuccessModalVisible} onRequestClose={() => setTrialSuccessModalVisible(false)}>
+        <View style={styles.modalCenterDimmerOverlayView}>
+          <View style={styles.modalSuccessCardContainer}>
+            <View style={[styles.modalCheckCircleIconGraphicBadge, { backgroundColor: COLORS.primary }]}>
+              <Feather name="gift" size={28} color="white" />
+            </View>
+            <Text style={[styles.modalSuccessHeadingMainTitleText, { color: COLORS.textDark, textAlign: 'center' }]}>
+              Free Trial Activated!
+            </Text>
+            <Text style={[styles.modalSuccessBodyParagraphText, { color: COLORS.textLight, marginTop: 8 }]}>
+              Your complimentary trial has been successfully set up. Now you need to logout to Activate start Free Trail.
+            </Text>
+            <TouchableOpacity 
+              style={[styles.modalDismissCTAAnchorButton, { backgroundColor: COLORS.primary, marginTop: 16 }]} 
+              onPress={logout}
+            >
+              <Text style={styles.modalDismissCTAAnchorButtonText}>Explore Features</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
-       <Modal animationType="fade" transparent={true} visible={paymentFailureModalVisible} onRequestClose={() => setPaymentFailureModalVisible(false)}>
-               <View style={styles.completionOverlayCenteredDimmer}>
-                 <View style={styles.completionSuccessCardAlert}>
-                   <LinearGradient colors={["#DC2626", "#EF4444"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.completionGraphicBadgeWrapper}>
-                     <Feather name="trash-2" size={32} color="#FFFFFF" />
-                   </LinearGradient>
-                   <Text style={[styles.completionSuccessHeadingTitle, { color: COLORS.textDark }]}>Your Payment Failed</Text>
-                   <Text style={[styles.completionSuccessParagraphBody, { color: COLORS.textLight }]}>
-                     The activity has been completely removed from your active layout structure.
-                   </Text>
-                   <TouchableOpacity style={[styles.completionDismissMainAnchorCTA, { backgroundColor: COLORS.primary }]} activeOpacity={0.8} onPress={() => setPaymentFailureModalVisible(false)}>
-                     <Text style={[styles.completionDismissAnchorText, { color: '#FFFFFF' }]}>Close</Text>
-                   </TouchableOpacity>
-                 </View>
-               </View>
-             </Modal>
+      {/* ✅ Payment Success Modal (మీరు అడిగినట్టు పాత `logout` అలానే ఉంచాను) */}
+      <Modal animationType="fade" transparent visible={paymentSuccessModalVisible} onRequestClose={() => setPaymentSuccessModalVisible(false)}>
+        <View style={styles.modalCenterDimmerOverlayView}>
+          <View style={styles.modalSuccessCardContainer}>
+            <View style={[styles.modalCheckCircleIconGraphicBadge, { backgroundColor: COLORS.primary }]}>
+              <Feather name="gift" size={28} color="white" />
+            </View>
+            <Text style={[styles.modalSuccessHeadingMainTitleText, { color: COLORS.textDark, textAlign: 'center' }]}>
+              Your Plan was Activated!
+            </Text>
+            <Text style={[styles.modalSuccessBodyParagraphText, { color: COLORS.textLight, marginTop: 8 }]}>
+              Your plan has been successfully set up. Now you need to logout to Activate your plan.
+            </Text>
+            <TouchableOpacity 
+              style={[styles.modalDismissCTAAnchorButton, { backgroundColor: COLORS.primary, marginTop: 16 }]} 
+              onPress={logout}
+            >
+              <Text style={styles.modalDismissCTAAnchorButtonText}>Explore Features</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal animationType="fade" transparent={true} visible={paymentFailureModalVisible} onRequestClose={() => setPaymentFailureModalVisible(false)}>
+        <View style={styles.completionOverlayCenteredDimmer}>
+          <View style={styles.completionSuccessCardAlert}>
+            <LinearGradient colors={["#DC2626", "#EF4444"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.completionGraphicBadgeWrapper}>
+              <Feather name="trash-2" size={32} color="#FFFFFF" />
+            </LinearGradient>
+            <Text style={[styles.completionSuccessHeadingTitle, { color: COLORS.textDark }]}>Your Payment Failed</Text>
+            <Text style={[styles.completionSuccessParagraphBody, { color: COLORS.textLight }]}>
+              The activity has been completely removed from your active layout structure.
+            </Text>
+            <TouchableOpacity style={[styles.completionDismissMainAnchorCTA, { backgroundColor: COLORS.primary }]} activeOpacity={0.8} onPress={() => setPaymentFailureModalVisible(false)}>
+              <Text style={[styles.completionDismissAnchorText, { color: '#FFFFFF' }]}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Choose Plan Modal */}
       <ChoosePlanModal
@@ -862,7 +864,10 @@ const handleSelectPlan = (plan: ApiSubscriptionPlan) => {
         apiPlans={apiPlans}
         selectedPlan={selectedPlan}
         COLORS={COLORS}
-        onClose={() => setSubscriptionModalVisible(false)}
+        onClose={() => {
+          setSubscriptionModalVisible(false);
+          setHasDismissedPlanModal(true); // ✅ X క్లిక్ చేసినప్పుడు మళ్లీ పాపప్ అవ్వకుండా సెట్ చేస్తున్నాం
+        }}
         onSelectPlan={handleSelectPlan}
       />
     </SafeAreaView>
@@ -877,7 +882,7 @@ const styles = StyleSheet.create({
   blurredLiquidSphere3: { position: "absolute", width: 190, height: 190, borderRadius: 95, backgroundColor: COLORS.darkSienna, opacity: 0.2, top: "50%", left: "32%", ...Platform.select({ web: { filter: "blur(70px)" } }), zIndex: 0 },
   brandText: { fontSize: 20, fontWeight: "700", letterSpacing: 0.2 },
   headerRow: { width: "100%" },
-  logoutButton: { padding: 10, borderRadius: 40, alignItems: 'center',justifyContent: 'center'},
+  logoutButton: { padding: 10, borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
   brandTitleContainer: { flexDirection: "row", alignItems: "center", gap: 10 },
   brandLogoImage: { width: 44, height: 44, borderRadius: 10 },
   greetingText: { fontSize: 28, fontWeight: "300", letterSpacing: -0.5 },
@@ -886,7 +891,7 @@ const styles = StyleSheet.create({
   tankCardCenter: { flex: 1.2, width: "100%", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.cardBg, borderRadius: 48, paddingVertical: 24, paddingHorizontal: 32, borderWidth: 1, borderColor: COLORS.border },
   actionCTAButton: { paddingVertical: 12, paddingHorizontal: 32, borderRadius: 40, flexDirection: "row", alignItems: "center", elevation: 4, marginTop: 6 },
   actionCTAButtonText: { color: "white", fontWeight: "700", fontSize: 14 },
-  secondaryCardLayout: { flex: 1.1, width: "100%", backgroundColor: COLORS.cardBg, borderRadius: 28, padding: 22, borderWidth: 1, marginBottom:10, borderColor: COLORS.border },
+  secondaryCardLayout: { flex: 1.1, width: "100%", backgroundColor: COLORS.cardBg, borderRadius: 28, padding: 22, borderWidth: 1, marginBottom: 10, borderColor: COLORS.border },
   sectionHeadingTitle: { fontSize: 15, fontWeight: "700" },
   recentActivityTileRow: { flexDirection: "row", alignItems: "center", paddingVertical: 4 },
   avatarPlaceholder: { width: 36, height: 36, borderRadius: 20, alignItems: "center", justifyContent: "center" },
@@ -909,22 +914,21 @@ const styles = StyleSheet.create({
   modalFormSubmitButtonCTA: { paddingVertical: 16, borderRadius: 40, alignItems: "center", justifyContent: "center", marginTop: 8 },
   modalFormSubmitButtonCTAText: { color: "white", fontSize: 14, fontWeight: "700" },
   modalCenterDimmerOverlayView: { flex: 1, backgroundColor: "rgba(74, 35, 26, 0.4)", justifyContent: "center", alignItems: "center", padding: 24 },
-  modalSuccessCardContainer: {backgroundColor: "white",borderRadius: 32,padding: 28,width: "100%", maxWidth: 350,alignItems: "center",elevation: 10,shadowColor: "#000",shadowOffset: { width: 0, height: 4 },shadowOpacity: 0.25,},
+  modalSuccessCardContainer: { backgroundColor: "white", borderRadius: 32, padding: 28, width: "100%", maxWidth: 350, alignItems: "center", elevation: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25 },
   modalCheckCircleIconGraphicBadge: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", marginBottom: 20 },
   modalSuccessHeadingMainTitleText: { fontSize: 20, fontWeight: "800", marginBottom: 8 },
   modalSuccessBodyParagraphText: { fontSize: 14, textAlign: "center", lineHeight: 20, marginBottom: 24 },
-  modalDismissCTAAnchorButton: { paddingVertical: 14, paddingHorizontal: 24, borderRadius: 40, width: "100%", alignItems: "center" },
+  modalDismissCTAAnchorButton: { paddingVertical: 14, paddingHorizontal: 24, borderRadius: 40, width: "100%", alignItems: "center", justifyContent: "center" },
   modalDismissCTAAnchorButtonText: { color: "white", fontWeight: "700", fontSize: 14 },
   statsCardMainRowFlex: { width: "100%", flexDirection: "row", gap: 14, marginTop: 20, justifyContent: "space-between" },
   statsCardMobileGridFlex: { width: "100%", flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 20, justifyContent: "space-between" },
-  styles: { flex: 1 },
-  completionOverlayCenteredDimmer: {flex: 1,backgroundColor: "rgba(17, 35, 29, 0.4)",justifyContent: "center",alignItems: "center",padding: 24,},
-  completionSuccessCardAlert: {backgroundColor: "#FFFFFF",borderRadius: 32,padding: 28,maxWidth: 380,width: "100%",alignItems: "center",borderWidth: 1,borderColor: COLORS.border,...Platform.select({  ios: { shadowColor: COLORS.darkSienna, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.04, shadowRadius: 24 },  android: { elevation: 5 },}),},
-  completionGraphicBadgeWrapper: {width: 64,height: 64,borderRadius: 22,alignItems: "center",justifyContent: "center",marginBottom: 20,},
-  completionSuccessHeadingTitle: {fontSize: 20,fontWeight: "800",marginBottom: 8,textAlign: "center",},
-  completionSuccessParagraphBody: {fontSize: 14,textAlign: "center",lineHeight: 21,marginBottom: 24,paddingHorizontal: 8,},
-  completionDismissMainAnchorCTA: {paddingVertical: 14,borderRadius: 16,width: "100%",alignItems: "center",justifyContent: "center",},
-  completionDismissAnchorText: {fontWeight: "700",fontSize: 14,},
+  completionOverlayCenteredDimmer: { flex: 1, backgroundColor: "rgba(17, 35, 29, 0.4)", justifyContent: "center", alignItems: "center", padding: 24 },
+  completionSuccessCardAlert: { backgroundColor: "#FFFFFF", borderRadius: 32, padding: 28, maxWidth: 380, width: "100%", alignItems: "center", borderWidth: 1, borderColor: COLORS.border, ...Platform.select({ ios: { shadowColor: COLORS.darkSienna, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.04, shadowRadius: 24 }, android: { elevation: 5 } }) },
+  completionGraphicBadgeWrapper: { width: 64, height: 64, borderRadius: 22, alignItems: "center", justifyContent: "center", marginBottom: 20 },
+  completionSuccessHeadingTitle: { fontSize: 20, fontWeight: "800", marginBottom: 8, textAlign: "center" },
+  completionSuccessParagraphBody: { fontSize: 14, textAlign: "center", lineHeight: 21, marginBottom: 24, paddingHorizontal: 8 },
+  completionDismissMainAnchorCTA: { paddingVertical: 14, borderRadius: 16, width: "100%", alignItems: "center", justifyContent: "center" },
+  completionDismissAnchorText: { fontWeight: "700", fontSize: 14 },
   plusTileIconActionButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(51, 105, 86, 0.08)", alignItems: "center", justifyContent: "center" },
   statsMiniGridTile: { flexDirection: "row", alignItems: "center", backgroundColor: COLORS.cardBg, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: COLORS.border, borderLeftWidth: 5, width: isDesktop ? "23%" : "48%", minHeight: 65 },
   statsTileIconWrapperCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.03)", alignItems: "center", justifyContent: "center" },
@@ -937,9 +941,9 @@ const styles = StyleSheet.create({
   newspaperHeadlineTitle: { fontSize: 22, fontWeight: "800", color: "#1B2A24", marginTop: 10, marginBottom: 6, letterSpacing: -0.3, lineHeight: 26 },
   newspaperDividerLine: { height: 1, backgroundColor: "rgba(51, 105, 86, 0.08)", marginVertical: 10 },
   newspaperParagraphBody: { fontSize: 13, color: "#576860", lineHeight: 20, textAlign: "left" },
-  bannerActionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 12, marginTop: 14 },
-  bannerReadMoreBtn: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: 'rgba(51, 105, 86, 0.06)', borderWidth: 1, borderColor: 'rgba(51, 105, 86, 0.12)' },
-  bannerReadMoreBtnText: { color: '#336956', fontSize: 12, fontWeight: '700' },
-  bannerPurchaseBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#E09643', shadowColor: '#E09643', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 5, elevation: 2 },
-  bannerPurchaseBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  bannerActionRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 12, marginTop: 14 },
+  bannerReadMoreBtn: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, backgroundColor: "rgba(51, 105, 86, 0.06)", borderWidth: 1, borderColor: "rgba(51, 105, 86, 0.12)" },
+  bannerReadMoreBtnText: { color: "#336956", fontSize: 12, fontWeight: "700" },
+  bannerPurchaseBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: "#E09643", shadowColor: "#E09643", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 5, elevation: 2 },
+  bannerPurchaseBtnText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
 });

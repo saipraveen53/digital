@@ -50,7 +50,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return diffDays > 0 ? diffDays : 0;
   };
 
-  // ✅ నార్మల్ లాగిన్ అప్పుడు కేవలం టోకెన్ లో ఉన్న స్టేటస్ మాత్రమే చెక్ చేస్తుంది (ఆటో-ఆక్టివేట్ చేయదు)
   const checkAndUpdateSubscription = async () => {
     if (!user || !user.token) {
       setIsSubscribed(false);
@@ -77,16 +76,13 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       let targetExpiryDate: Date | null = null;
       let hasValidAccess = false;
 
-      // 1. Paid Subscription యాక్టివ్‌గా ఉందో లేదో చెక్ చేస్తుంది
       if (pStatus === "ACTIVE" && decoded.expireDate) {
         const pExpiry = new Date(decoded.expireDate);
         if (pExpiry > now) {
           targetExpiryDate = pExpiry;
           hasValidAccess = true;
         }
-      } 
-      // 2. యూజర్ ప్లాన్స్ లో ఫ్రీ ట్రయల్ క్లిక్ చేసి ఆక్టివేట్ చేసుకుంటే ఇక్కడకు వస్తుంది
-      else if (tStatus === "ACTIVE" && decoded.trialexpireDate) {
+      } else if (tStatus === "ACTIVE" && decoded.trialexpireDate) {
         const tExpiry = new Date(decoded.trialexpireDate);
         if (tExpiry > now) {
           targetExpiryDate = tExpiry;
@@ -109,7 +105,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  // యూజర్ హోమ్ స్క్రీన్ ప్లాన్స్ నుండి మాన్యువల్‌గా పేమెంట్ లేదా ట్రయల్ బటన్ నొక్కినప్పుడు కాల్ అయ్యే మెథడ్స్
   const activateSubscription = async (days: number) => {
     await checkAndUpdateSubscription();
   };

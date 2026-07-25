@@ -88,7 +88,7 @@ const createAxiosInstance = (baseURL: string): AxiosInstance => {
 
 // Export the API instance
 export const rootApi: AxiosInstance = createAxiosInstance(
-  "https://wellbeing-fw2o.onrender.com",
+  "http://wellbeing-backend-alb-1422641502.ap-south-1.elb.amazonaws.com/",
 );
 
 // Optional: Create additional instances for different base URLs
