@@ -27,7 +27,8 @@ import { rootApi } from '../utils/axiosInstance';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
 GoogleSignin.configure({
-  webClientId: '341709776135-2gc8sr7belb8if4d19sse44dkvlr9rh7.apps.googleusercontent.com',
+  // @ts-ignore
+  webClientId: '244036437664-1mpdpkua2p304d4tfk4ftfci93vfub4j.apps.googleusercontent.com',
   offlineAccess: true,
 });
 

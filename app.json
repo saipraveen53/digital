@@ -12,10 +12,10 @@
       "supportsTablet": true
     },
     "android": {
-      "minSdkVersion": 23,     
+      "minSdkVersion": 23,
       "compileSdkVersion": 36,
       "targetSdkVersion": 36,
-      "versionCode": 10,
+      "versionCode": 15,
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/logo3.jpeg",
@@ -44,7 +44,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
