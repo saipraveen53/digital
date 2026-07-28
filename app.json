@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Energy Tracker",
+    "name": "Wellbeing Gauge",
     "slug": "nnnn",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logoo.png",
+    "icon": "./assets/images/logo1.jpeg",
     "scheme": "nnnn",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -12,11 +12,14 @@
       "supportsTablet": true
     },
     "android": {
+      "minSdkVersion": 23,
+      "compileSdkVersion": 36,
+      "targetSdkVersion": 36,
+      "versionCode": 15,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/logoo.png",
-        "backgroundImage": "./assets/images/logoo.png",
-        "monochromeImage": "./assets/images/logoo.png"
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/images/logo3.jpeg",
+        "monochromeImage": "./assets/images/logo3.jpeg"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -25,14 +28,15 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/logoo.png"
+      "favicon": "./assets/images/logo1.jpeg"
     },
     "plugins": [
       "expo-router",
+      "@react-native-google-signin/google-signin",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/logoo.png",
+          "image": "./assets/images/logo23.jpeg",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -40,11 +44,19 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8a103150-8229-47a1-b695-7fde7330453e"
+      }
+    },
+    "owner": "shinrayhealth"
   }
 }

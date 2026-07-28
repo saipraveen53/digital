@@ -32,9 +32,9 @@ export default function PrivacyPolicy() {
           </View>
 
           <View>
-            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#111827', marginBottom: 12 }}>3. AI Insights</Text>
+            <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#111827', marginBottom: 12 }}>3. Customized Insights</Text>
             <Text style={{ fontSize: 16, color: '#4B5563', lineHeight: 28 }}>
-              Our AI recovery suggestions are generated based on your numeric gauge score and category patterns. We process this data anonymously to provide personalized tips without compromising your identity.
+              Our customized recovery suggestions are generated based on your numeric gauge score and category patterns. We process this data anonymously to provide personalized tips without compromising your identity.
             </Text>
           </View>
 

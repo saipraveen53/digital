@@ -1,5 +1,5 @@
-// app/(user)/tips.tsx
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -8,6 +8,7 @@ import {
   Modal,
   PanResponder,
   Platform,
+  Pressable,
   Animated as RNAnimated,
   SafeAreaView,
   ScrollView,
@@ -17,53 +18,53 @@ import {
   View,
 } from "react-native";
 import Animated, {
-  Easing,
-  cancelAnimation,
   interpolate,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
 } from "react-native-reanimated";
 import { useAuth } from "../context/AuthContext";
 import { rootApi } from "../utils/axiosInstance";
+import { WaterGauge } from "./WaterGauges";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const isDesktop = screenWidth >= 768;
 
-// ✅ FIXED: Color configurations fully synchronized with premium brand image aesthetics
 const COLORS = {
-  background: "#FAF9F5",      // Clean minimalist crisp warm cream background tone
-  cardBg: "rgba(255, 255, 255, 0.90)", 
-  textDark: "#11231D",       // Strong dark slate accent green text header tone
-  textLight: "#576860",      // Smooth soothing mid-tone slate green for subtitles
-  primary: "#336956",        // Brand Deep Emerald Green focus color from panels
-  secondary: "#E09643",      // Warm balanced progress amber variant from gauge fill
-  darkSienna: "#1B4235",     // Luxury dense forest green boundary tint
-  border: "rgba(51, 105, 86, 0.08)", 
-  
-  // Dynamic Gauge Color Sync Track Tones
-  excellent: "#336956",      // Synchronized with main brand emerald green
-  balanced: "#E09643",       // Balanced progress amber indicator from gauge
-  critical: "#DC2626",       // Vibrant red for critical warnings
+  background: "#FAF9F5",
+  cardBg: "rgba(255, 255, 255, 0.90)",
+  textDark: "#11231D",
+  textLight: "#576860",
+  primary: "#336956",
+  secondary: "#E09643",
+  darkSienna: "#1B4235",
+  border: "rgba(51, 105, 86, 0.08)",
+  excellent: "#336956",
+  balanced: "#E09643",
+  critical: "#DC2626",
 };
 
-// Interface reflecting the new /api/tips schema structural design
-interface TipItem {
-  status: boolean;
-  tipDescription: string;
-  tipId: string;
-  tipName: string;
-  tipScore: number;
+const GRADIENT_COLORS = [COLORS.primary, COLORS.secondary];
+
+interface TipCategoryItem {
+  categoryId: number;
+  categoryTipName: string;
 }
 
-// Interface reflecting /tiplogs/{userId} schema structural design
+interface AiTipItem {
+  tipId: string;
+  tipName: string;
+  tipDescription: string;
+  status: boolean;
+  tipScore: number;
+  categoryId: number;
+  categoryName: string;
+}
+
 interface TipLogItem {
   tipLogId: string;
   tipId: string;
-  tipName: string;
+  tipCategoryName: string;
   scoreChange: number;
   appliedAt: string;
 }
@@ -77,41 +78,41 @@ interface UserScoreData {
 
 export default function TipsScreen() {
   const { user } = useAuth();
-  const [tipsList, setTipsList] = useState<TipItem[]>([]);
+  const [categoriesList, setCategoriesList] = useState<TipCategoryItem[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  
+  // ✅ డైనమిక్ ఎక్స్‌టెన్షన్ కోసం ప్రతి కేటగిరీ కింద టిప్స్ ని మ్యాప్ చేసే ఆబ్జెక్ట్ స్టేట్
+  const [categoryTips, setCategoryTips] = useState<Record<number, AiTipItem[]>>({});
+  
   const [tipLogs, setTipLogs] = useState<TipLogItem[]>([]);
   const [scoreData, setScoreData] = useState<UserScoreData | null>(null);
 
-  // UI Loading and Interaction States
   const [globalLoading, setGlobalLoading] = useState(true);
+  const [categoryLoadingId, setCategoryLoadingId] = useState<number | null>(null);
   const [logsLoading, setLogsLoading] = useState(false);
+  
+  // ✅ ఫిక్స్: ఇమేజ్‌లో ఉన్న డబుల్ లోడింగ్ సమస్య పోవడానికి నేమ్‌కి బదులు ID ట్రాకింగ్
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
   const [showLogsOverlay, setShowLogsOverlay] = useState(false);
+  const [selectedTip, setSelectedTip] = useState<AiTipItem | null>(null);
+  const [selectedHistoryLog, setSelectedHistoryLog] = useState<TipLogItem | null>(null);
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Native Animated Value for Drag down dismissal tracking mechanics
+  const scrollRef = useRef<Animated.ScrollView>(null);
   const panY = useRef(new RNAnimated.Value(0)).current;
-
-  // Reanimated Shared Animation Tokens
   const scrollY = useSharedValue(0);
-  const waveOffset1 = useSharedValue(0);
-  const waveOffset2 = useSharedValue(0);
-  const waveBounce = useSharedValue(0);
 
   const userId = user?.id || "";
   const scorePercentage = scoreData ? scoreData.currentScore : 0;
 
-  // PanResponder gesture monitoring context registration
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return gestureState.dy > 5;
-      },
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
       onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dy > 0) {
-          panY.setValue(gestureState.dy);
-        }
+        if (gestureState.dy > 0) panY.setValue(gestureState.dy);
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy > 120 || gestureState.vy > 0.5) {
@@ -124,57 +125,15 @@ export default function TipsScreen() {
             panY.setValue(0);
           });
         } else {
-          RNAnimated.spring(panY, {
-            toValue: 0,
-            useNativeDriver: true,
-            tension: 40,
-            friction: 8,
-          }).start();
+          RNAnimated.spring(panY, { toValue: 0, useNativeDriver: true, tension: 40, friction: 8 }).start();
         }
       },
     }),
   ).current;
 
-  // Dynamic Gauge Range Color Switcher
-  const getGaugeColor = (score: number) => {
-    if (score >= 75) return COLORS.excellent;
-    if (score >= 45) return COLORS.balanced;
-    return COLORS.critical;
-  };
-  const activeGaugeColor = getGaugeColor(scorePercentage);
-
-  // Scroll Interceptor for 3D Depth
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
   });
-
-  // Loop Continuous Waves Motion Logic
-  useEffect(() => {
-    waveOffset1.value = withRepeat(
-      withTiming(200, { duration: 2200, easing: Easing.linear }),
-      -1,
-      false,
-    );
-    waveOffset2.value = withRepeat(
-      withTiming(-200, { duration: 2600, easing: Easing.linear }),
-      -1,
-      false,
-    );
-    waveBounce.value = withRepeat(
-      withSequence(
-        withTiming(4, { duration: 1100, easing: Easing.inOut(Easing.ease) }),
-        withTiming(-4, { duration: 1100, easing: Easing.inOut(Easing.ease) }),
-      ),
-      -1,
-      true,
-    );
-
-    return () => {
-      cancelAnimation(waveOffset1);
-      cancelAnimation(waveOffset2);
-      cancelAnimation(waveBounce);
-    };
-  }, []);
 
   useEffect(() => {
     if (userId) {
@@ -185,96 +144,96 @@ export default function TipsScreen() {
   const fetchInitialData = async () => {
     setGlobalLoading(true);
     try {
-      const tipsRes = await rootApi.get<TipItem[]>("/api/tips");
-      setTipsList(tipsRes.data || []);
+      const categoriesRes = await rootApi.get<TipCategoryItem[]>("/api/tipCategory/getByStatus", {
+        params: { status: true },
+      });
+      setCategoriesList(categoriesRes.data || []);
 
       const scoreRes = await rootApi.get<UserScoreData>(`/user/${userId}`);
       setScoreData(scoreRes.data || null);
 
-      const logsRes = await rootApi.get<TipLogItem[]>(`/tiplogs/${userId}`);
+      const logsRes = await rootApi.get<TipLogItem[]>("/tiplogs");
       setTipLogs(logsRes.data || []);
     } catch (err) {
-      console.error("Error fetching core endpoint profiles:", err);
+      console.error("Error fetching initial settings:", err);
     } finally {
       setGlobalLoading(false);
+    }
+  };
+
+  const handleCategoryPress = async (categoryId: number) => {
+    // ఒకవేళ ఆల్రెడీ ఓపెన్ చేసిన కేటగిరీని మళ్ళీ క్లిక్ చేస్తే దాన్ని క్లోజ్ (collapse) చేయడానికి
+    if (selectedCategoryId === categoryId) {
+      setSelectedCategoryId(null);
+      return;
+    }
+
+    setSelectedCategoryId(categoryId);
+    
+    // డేటా ఆల్రెడీ లోకల్‌గా లోడ్ అయి ఉంటే మళ్ళీ API కి కాల్ చేయదు
+    if (categoryTips[categoryId]) return;
+
+    setCategoryLoadingId(categoryId);
+    try {
+      const tipsRes = await rootApi.get<AiTipItem[]>("/api/tips/byCategory", {
+        params: { categoryId: categoryId },
+      });
+      setCategoryTips(prev => ({ ...prev, [categoryId]: tipsRes.data || [] }));
+    } catch (err) {
+      console.error("Error fetching tips by category:", err);
+      Alert.alert("Error", "Could not fetch tips for the selected category.");
+    } finally {
+      setCategoryLoadingId(null);
     }
   };
 
   const fetchHistoryLogs = async () => {
     setLogsLoading(true);
     try {
-      const logsRes = await rootApi.get<TipLogItem[]>(`/tiplogs/${userId}`);
+      const logsRes = await rootApi.get<TipLogItem[]>("/tiplogs");
       setTipLogs(logsRes.data || []);
       panY.setValue(0);
       setShowLogsOverlay(true);
     } catch (err) {
-      console.error("Failed reading user specific history logs array:", err);
-      Alert.alert("Error", "Could not sync history data at this time.");
+      console.error("Failed syncing history logs data matrix:", err);
+      Alert.alert("Error", "Could not sync history database logs.");
     } finally {
       setLogsLoading(false);
     }
   };
 
-  const handleApplyTip = async (tipId: string, tipName: string) => {
-    setActionLoadingId(tipId);
-    try {
-      await rootApi.post("/applytip", { userId, tipId });
+  const handleApplyTip = async (item: AiTipItem) => {
+    // ✅ డబుల్ లోడింగ్ సమస్య లేకుండా ఐడి ని సెట్ చేస్తున్నాం
+    setActionLoadingId(item.tipId);
+    const requestBody = { userId: userId, tipId: item.tipId };
 
-      setSuccessMessage(`"${tipName}" applied into system logs successfully!`);
+    try {
+      await rootApi.post("/applytip", requestBody);
+      setSuccessMessage(`"${item.tipName}" applied successfully.`);
       setSuccessModalVisible(true);
 
       const scoreRes = await rootApi.get<UserScoreData>(`/user/${userId}`);
       setScoreData(scoreRes.data || null);
 
-      const logsRes = await rootApi.get<TipLogItem[]>(`/tiplogs/${userId}`);
+      const logsRes = await rootApi.get<TipLogItem[]>("/tiplogs");
       setTipLogs(logsRes.data || []);
     } catch (err) {
-      console.error("Action payload rejected by remote engine:", err);
+      console.error("Action endpoint validation trace failed:", err);
     } finally {
       setActionLoadingId(null);
     }
   };
 
   const ballStyle1 = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(scrollY.value, [0, screenHeight], [0, -240]) },
-    ],
+    transform: [{ translateY: interpolate(scrollY.value, [0, screenHeight], [0, -240]) }],
   }));
 
   const ballStyle2 = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(scrollY.value, [0, screenHeight], [140, -130]) },
-    ],
+    transform: [{ translateY: interpolate(scrollY.value, [0, screenHeight], [140, -130]) }],
   }));
 
   const ballStyle3 = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(scrollY.value, [0, screenHeight], [-70, -380]) },
-    ],
-  }));
-
-  const fluidHeightStyle = useAnimatedStyle(() => {
-    const boundedScore = Math.min(Math.max(scorePercentage, 0), 100);
-    return {
-      height: withTiming(`${boundedScore}%`, {
-        duration: 800,
-        easing: Easing.out(Easing.quad),
-      }),
-    };
-  });
-
-  const animatedWave1 = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: waveOffset1.value },
-      { translateY: waveBounce.value },
-    ],
-  }));
-
-  const animatedWave2 = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: waveOffset2.value },
-      { translateY: -waveBounce.value },
-    ],
+    transform: [{ translateY: interpolate(scrollY.value, [0, screenHeight], [-70, -380]) }],
   }));
 
   if (globalLoading) {
@@ -290,12 +249,12 @@ export default function TipsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
-      {/* 3D Hardware Accelerated Anti-Direction Floating Blur Spheres */}
       <Animated.View style={[styles.blurredLiquidSphere1, ballStyle1]} />
       <Animated.View style={[styles.blurredLiquidSphere2, ballStyle2]} />
       <Animated.View style={[styles.blurredLiquidSphere3, ballStyle3]} />
 
       <Animated.ScrollView
+        ref={scrollRef}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         style={{ flex: 1 }}
@@ -305,10 +264,9 @@ export default function TipsScreen() {
         <View style={styles.responsiveBentoConstraintWrapper}>
           <View style={styles.headingDescriptionRowFlex}>
             <Text style={[styles.metaSubtleInformationParagraphText, { color: COLORS.textLight }]}>
-              Personalized by role, age, wellbeing score, and recent activity patterns.
+              Personalized insights and automated dynamic tracking logic.
             </Text>
 
-            {/* Unified History Action Module */}
             <TouchableOpacity
               style={styles.historyLogTriggerAnchorButton}
               activeOpacity={0.7}
@@ -319,12 +277,7 @@ export default function TipsScreen() {
                 <ActivityIndicator size="small" color={COLORS.primary} />
               ) : (
                 <>
-                  <Feather
-                    name="clock"
-                    size={14}
-                    color={COLORS.primary}
-                    style={{ marginRight: 6 }}
-                  />
+                  <Feather name="clock" size={14} color={COLORS.primary} style={{ marginRight: 6 }} />
                   <Text style={[styles.historyLogTriggerAnchorButtonText, { color: COLORS.primary }]}>
                     View History Logs
                   </Text>
@@ -332,33 +285,29 @@ export default function TipsScreen() {
               )}
             </TouchableOpacity>
           </View>
-          
-          {/* --- ULTRA COLORFUL STAT CARDS SECTION --- */}
-         {/* --- CLEAN STATIC DOUBLE FRAME STAT CARDS SECTION (image_ee188c_2.png) --- */}
+
+          {/* Top Cards Matrix */}
           <View style={styles.statCardsContainer}>
-            {/* Card 1: Active Tips */}
             <View style={styles.outerFrameContainer}>
               <View style={styles.innerFrameContainer}>
                 <View style={[styles.cardIconWrapperCircle, { backgroundColor: 'rgba(51, 105, 86, 0.06)' }]}>
-                  <Feather name="list" size={16} color="#336956" />
+                  <Feather name="cpu" size={16} color="#336956" />
                 </View>
-                <Text style={styles.cardValueTypography}>{tipsList.length}</Text>
-                <Text style={styles.cardLabelTypography}>Active Tips</Text>
+                <Text style={styles.cardValueTypography}>{categoriesList.length}</Text>
+                <Text style={styles.cardLabelTypography}>Categories</Text>
               </View>
             </View>
 
-            {/* Card 2: Total Actions */}
             <View style={styles.outerFrameContainer}>
               <View style={styles.innerFrameContainer}>
                 <View style={[styles.cardIconWrapperCircle, { backgroundColor: 'rgba(224, 150, 67, 0.06)' }]}>
                   <Feather name="check-square" size={16} color="#E09643" />
                 </View>
                 <Text style={styles.cardValueTypography}>{tipLogs.length}</Text>
-                <Text style={styles.cardLabelTypography}>Total Actions</Text>
+                <Text style={styles.cardLabelTypography}>Total Applied</Text>
               </View>
             </View>
 
-            {/* Card 3: Current Score */}
             <View style={styles.outerFrameContainer}>
               <View style={styles.innerFrameContainer}>
                 <View style={[styles.cardIconWrapperCircle, { backgroundColor: 'rgba(27, 66, 53, 0.06)' }]}>
@@ -370,108 +319,175 @@ export default function TipsScreen() {
             </View>
           </View>
 
-          {/* --- TOP MATRIX METER CARD: CIRCULAR FLUID DISPLAY --- */}
           <View style={styles.wellbeingGaugeBentoCard}>
-            <Text style={[styles.gaugeSectionSmallHeaderTitleText, { color: COLORS.textLight }]}>
-              Current wellbeing
+            <Text style={styles.gaugeSectionSmallHeaderTitleText}>
+              CURRENT WELLBEING
             </Text>
 
-            <View style={[styles.fluidCircleMeterRingFrameOuter, { borderColor: "rgba(51, 105, 86, 0.12)" }]}>
-              <View style={styles.fluidCircleContainerOverflowClipHiddenLayer}>
-                <Animated.View
-                  style={[
-                    styles.fluidLiquidBaseFillTrack,
-                    fluidHeightStyle,
-                    { backgroundColor: activeGaugeColor },
-                  ]}
-                >
-                  <Animated.View
-                    style={[
-                      animatedWave2,
-                      styles.fluidWaveMicroRibbon,
-                      { backgroundColor: "rgba(255,255,255,0.25)", top: -14 },
-                    ]}
-                  />
-                  <Animated.View
-                    style={[
-                      animatedWave1,
-                      styles.fluidWaveMicroRibbon,
-                      { backgroundColor: "rgba(255,255,255,0.18)", top: -10 },
-                    ]}
-                  />
-                </Animated.View>
-              </View>
-
-              <View style={styles.gaugeForegroundAbsoluteCenterLabelsStack}>
-                <Text style={[styles.gaugePercentagePrimaryValueDisplayValueText, { color: COLORS.textDark }]}>
-                  {scorePercentage}%
-                </Text>
-              </View>
+            <View style={styles.gaugeContainerAligner}>
+              <WaterGauge
+                percentage={scorePercentage}
+                size={isDesktop ? 220 : 190}
+                animated={true}
+              />
             </View>
           </View>
 
-          {/* --- BOTTOM SECTION: SUGGESTED RECOMMENDATION CARDS FEED LAYOUT --- */}
-          <View style={styles.tipsFeedCardsListStackContainer}>
-            {tipsList.length === 0 ? (
+          {/* 🌟 Category Grid Layout with Extended Inline Recommendations Feed */}
+          <Text style={styles.gridSectionHeaderLabelTitle}>Select Category</Text>
+          <View style={[styles.tipsBentoGridLayoutWrapperMesh, { marginBottom: 32 }]}>
+            {categoriesList.length === 0 ? (
               <View style={styles.emptyFeedFallbackCardLayout}>
-                <Feather
-                  name="sun"
-                  size={28}
-                  color={COLORS.textLight}
-                  style={{ marginBottom: 8 }}
-                />
+                <Feather name="folder" size={28} color={COLORS.textLight} style={{ marginBottom: 8 }} />
                 <Text style={[styles.emptyFeedFallbackCardLayoutText, { color: COLORS.textLight }]}>
-                  All recommended task items completed for today!
+                  No categories found.
                 </Text>
               </View>
             ) : (
-              tipsList.map((item, idx) => (
-                <View key={item.tipId || idx} style={styles.premiumTipDescriptionTileCardItem}>
-                  <Text style={[styles.tipCardBadgeCounterText, { color: COLORS.primary }]}>
-                    Tip {idx + 1}
-                  </Text>
-                  <Text style={[styles.tipCardMainTitleText, { color: COLORS.textDark }]}>
-                    {item.tipName}
-                  </Text>
+              categoriesList.map((cat) => {
+                const isSelected = selectedCategoryId === cat.categoryId;
+                const currentTips = categoryTips[cat.categoryId] || [];
+                const isCategoryLoading = categoryLoadingId === cat.categoryId;
 
-                  <Text style={[styles.tipCardExpectedGainValueText, { color: activeGaugeColor }]}>
-                    Suggested gain: +{item.tipScore}%
-                  </Text>
+                return (
+                  <View key={cat.categoryId} style={[styles.gradientBorderWrapper, { width: "100%", marginBottom: 8 }]}>
+                    <LinearGradient
+                      colors={GRADIENT_COLORS}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.gradientBorderBackground, { padding: isSelected ? 2 : 1 }]}
+                    >
+                      <View style={[styles.gridPremiumBentoItemCardCellInner, { minHeight: 70, paddingBottom: isSelected ? 12 : 20 }]}>
+                        <TouchableOpacity
+                          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%" }}
+                          activeOpacity={0.8}
+                          onPress={() => handleCategoryPress(cat.categoryId)}
+                        >
+                          <Text style={[styles.gridCardMainHeadlineTextTitle, { marginBottom: 0, fontSize: 16 }]}>
+                            {cat.categoryTipName}
+                          </Text>
+                          <Feather name={isSelected ? "chevron-down" : "chevron-right"} size={18} color={COLORS.primary} />
+                        </TouchableOpacity>
 
-                  <Text style={[styles.tipCardStaticDescriptionParaText, { color: COLORS.textLight }]}>
-                    {item.tipDescription ||
-                      "Applying this targeted recovery break counters active burnout, cuts rumination, and lowers the chance of slipping into fatigue."}
-                  </Text>
+                        {/* 🔄 లోడింగ్ ఇండికేటర్ కేవలం సెలెక్ట్ చేసిన ఆ పర్టిక్యులర్ లేఅవుట్ కిందే వస్తుంది */}
+                        {isSelected && isCategoryLoading && (
+                          <View style={{ paddingVertical: 20, width: "100%", alignItems: "center" }}>
+                            <ActivityIndicator size="small" color={COLORS.primary} />
+                          </View>
+                        )}
 
-                  <TouchableOpacity
-                    style={[styles.applyActionButtonCTA, { backgroundColor: COLORS.primary }]}
-                    activeOpacity={0.8}
-                    onPress={() => handleApplyTip(item.tipId, item.tipName)}
-                    disabled={actionLoadingId !== null}
-                  >
-                    {actionLoadingId === item.tipId ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <>
-                        <Feather name="check" size={16} color="white" style={{ marginRight: 6 }} />
-                        <Text style={styles.applyActionButtonCTAText}>I do this</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              ))
+                        {/* 📦 Extended Tips Section Layout Inside the Category Cell */}
+                        {isSelected && !isCategoryLoading && (
+                          <View style={{ width: "100%", marginTop: 16, borderTopWidth: 1, borderTopColor: "rgba(51, 105, 86, 0.08)", paddingTop: 16 }}>
+                            {currentTips.length === 0 ? (
+                              <Text style={{ fontSize: 13, color: COLORS.textLight, textAlign: "center", paddingVertical: 10 }}>
+                                No items generated inside recommendation buffer engine stack.
+                              </Text>
+                            ) : (
+                              <View style={{ gap: 14 }}>
+                                {currentTips.map((item) => (
+                                  <TouchableOpacity
+                                    key={item.tipId}
+                                    style={{ backgroundColor: "#FAF9F5", padding: 16, borderRadius: 16, borderBold: 1, borderColor: "rgba(0,0,0,0.02)" }}
+                                    activeOpacity={0.9}
+                                    onPress={() => setSelectedTip(item)}
+                                  >
+                                    <View style={styles.gridCardUpperBadgeContainerFlexRow}>
+                                      <Text style={styles.gridCardIndexBadgeTextLabel}>{item.categoryName || "INSIGHT"}</Text>
+                                      <View style={styles.scoreChangeInlineValueBadgeFloatingBox}>
+                                        <Text style={styles.scoreChangeInlineValueBadgeFloatingBoxText}>+{item.tipScore} XP</Text>
+                                      </View>
+                                    </View>
+
+                                    <Text style={[styles.gridCardMainHeadlineTextTitle, { fontSize: 15 }]} numberOfLines={1}>{item.tipName}</Text>
+                                    <Text style={[styles.gridCardParagraphMutedDescriptionText, { fontSize: 12, marginBottom: 12 }]} numberOfLines={2}>{item.tipDescription}</Text>
+
+                                    <TouchableOpacity
+                                      style={styles.applyActionButtonCTAWrapper}
+                                      activeOpacity={0.8}
+                                      onPress={() => handleApplyTip(item)}
+                                      disabled={actionLoadingId !== null}
+                                    >
+                                      <LinearGradient
+                                        colors={GRADIENT_COLORS}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={[styles.applyActionButtonCTAGradient, { paddingVertical: 10 }]}
+                                      >
+                                        {/* ✅ ఫిక్స్: కేవలం క్లిక్ చేసిన ఆ టిప్‌కి మాత్రమే స్పిన్నర్ తిరుగుతుంది */}
+                                        {actionLoadingId === item.tipId ? (
+                                          <ActivityIndicator size="small" color="white" />
+                                        ) : (
+                                          <>
+                                            <Feather name="zap" size={14} color="white" style={{ marginRight: 6 }} />
+                                            <Text style={[styles.applyActionButtonCTAText, { fontSize: 12 }]}>Recommend this</Text>
+                                          </>
+                                        )}
+                                      </LinearGradient>
+                                    </TouchableOpacity>
+                                  </TouchableOpacity>
+                                ))}
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    </LinearGradient>
+                  </View>
+                );
+              })
             )}
           </View>
         </View>
       </Animated.ScrollView>
 
-      {/* OVERLAY PANEL MODAL SHEET WINDOW: /tiplogs/{userId} RESPONSE DISPLAY VIEW WITH PAN GESTURE DISMISS */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showLogsOverlay}
-        onRequestClose={() => setShowLogsOverlay(false)}
-      >
+      {/* COMPLETE TIP INFO LAYER OVERLAY SCREEN WINDOW MODAL */}
+      <Modal animationType="fade" transparent visible={selectedTip !== null} onRequestClose={() => setSelectedTip(null)}>
+        <Pressable style={styles.modalCenterDimmerView} onPress={() => setSelectedTip(null)}>
+          <Pressable style={styles.expandedDetailCoreDisplayBentoCardFrame} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.detailCardStickyHeaderRowFlex}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={styles.detailCardCategoryMicroLabelBadge}>{selectedTip?.categoryName || "RECOMMENDED PROFILE STEP"}</Text>
+                <Text style={styles.detailCardMainTitleText} numberOfLines={2}>{selectedTip?.tipName}</Text>
+              </View>
+              <TouchableOpacity style={styles.modalCloseCircleButton} onPress={() => setSelectedTip(null)}>
+                <Feather name="x" size={16} color={COLORS.textDark} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={true} nestedScrollEnabled={true} style={{ maxHeight: 200, marginVertical: 12, paddingRight: 4 }}>
+              <Text style={styles.detailCardParagraphBodyContent}>{selectedTip?.tipDescription}</Text>
+            </ScrollView>
+
+            <View style={styles.detailCardFooterScoreIndicatorBoxRowFlex}>
+              <Text style={styles.detailCardFooterScoreIndicatorBoxRowFlexLabel} numberOfLines={1}>Estimated Impact Weight</Text>
+              <Text style={styles.detailCardFooterScoreIndicatorBoxRowFlexValue}>+{selectedTip?.tipScore}% Well-Gauge Acceleration</Text>
+            </View>
+
+            {selectedTip && (
+              <TouchableOpacity
+                style={[styles.applyActionButtonCTAWrapper, { marginTop: 14 }]}
+                onPress={() => {
+                  handleApplyTip(selectedTip);
+                  setSelectedTip(null);
+                }}
+              >
+                <LinearGradient
+                  colors={GRADIENT_COLORS}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.applyActionButtonCTAGradient}
+                >
+                  <Text style={styles.applyActionButtonCTAText}>Apply Insight Context Into Metrics</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* OVERLAY PANEL MODAL SHEET WINDOW: /tiplogs HISTORY TIMELINE FEED DISPLAY */}
+      <Modal animationType="slide" transparent visible={showLogsOverlay} onRequestClose={() => setShowLogsOverlay(false)}>
         <View style={styles.modalSheetBlurOverlayDimmer}>
           <RNAnimated.View style={[styles.modalInteractiveSheetContainer, { transform: [{ translateY: panY }] }]}>
             <View style={styles.modalTopIndicatorHandle} {...panResponder.panHandlers} />
@@ -481,9 +497,7 @@ export default function TipsScreen() {
                 <View style={[styles.modalTitleIconContainer, { backgroundColor: COLORS.primary }]}>
                   <Feather name="activity" size={18} color="white" />
                 </View>
-                <Text style={[styles.modalSheetMainTitle, { color: COLORS.textDark }]}>
-                  Applied History Logs
-                </Text>
+                <Text style={[styles.modalSheetMainTitle, { color: COLORS.textDark }]}>Applied History Logs</Text>
               </View>
               <TouchableOpacity style={styles.modalCloseCircleButton} onPress={() => setShowLogsOverlay(false)}>
                 <Feather name="x" size={16} color={COLORS.textLight} />
@@ -494,43 +508,35 @@ export default function TipsScreen() {
               {tipLogs.length === 0 ? (
                 <View style={styles.emptyLogsContainer}>
                   <Feather name="folder-minus" size={40} color={COLORS.textLight} style={{ marginBottom: 12, opacity: 0.6 }} />
-                  <Text style={[styles.emptyLogsFallbackText, { color: COLORS.textLight }]}>
-                    No items found in your history log matrix.
-                  </Text>
+                  <Text style={[styles.emptyLogsFallbackText, { color: COLORS.textLight }]}>No history log indicators mapped.</Text>
                 </View>
               ) : (
                 tipLogs.map((log, index) => (
-                  <View key={log.tipLogId || index} style={styles.logHistoryHorizontalItemTile}>
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.logHistoryHorizontalItemTile}
+                    activeOpacity={0.8}
+                    onPress={() => setSelectedHistoryLog(log)}
+                  >
                     <View style={[styles.logHistoryBarIndicator, { backgroundColor: COLORS.primary }]} />
                     <View style={styles.logTileIconBadge}>
                       <Feather name="check" size={14} color={COLORS.excellent} />
                     </View>
 
                     <View style={{ flex: 1, paddingLeft: 4 }}>
-                      <Text style={[styles.logHistoryItemTitleMainText, { color: COLORS.textDark }]} numberOfLines={1}>
-                        {log.tipName}
-                      </Text>
+                      <Text style={styles.logHistoryItemTitleMainText} numberOfLines={1}>{log.tipCategoryName}</Text>
                       <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
                         <Feather name="calendar" size={10} color={COLORS.textLight} style={{ marginRight: 4 }} />
-                        <Text style={[styles.logHistoryItemTimestampSubtext, { color: COLORS.textLight }]}>
-                          {log.appliedAt
-                            ? new Date(log.appliedAt).toLocaleDateString([], {
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : "Applied Today"}
+                        <Text style={styles.logHistoryItemTimestampSubtext}>
+                          {log.appliedAt ? new Date(log.appliedAt).toLocaleDateString() : "Active Logs"}
                         </Text>
                       </View>
                     </View>
 
                     <View style={styles.scoreImpactBadgeContainer}>
-                      <Text style={styles.logHistoryItemScoreImpactBadgeText}>
-                        +{log.scoreChange || 20}%
-                      </Text>
+                      <Text style={styles.logHistoryItemScoreImpactBadgeText}>+{log.scoreChange || 15}%</Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))
               )}
             </ScrollView>
@@ -538,29 +544,56 @@ export default function TipsScreen() {
         </View>
       </Modal>
 
+      {/* NESTED INDIVIDUAL HISTORY LOG INFO DETAIL MODAL PIPELINE DISPLAY */}
+      <Modal animationType="fade" transparent visible={selectedHistoryLog !== null} onRequestClose={() => setSelectedHistoryLog(null)}>
+        <View style={styles.modalCenterDimmerView}>
+          <View style={styles.nestedHistoryLogDetailCardContainerSheetBox}>
+            <View style={styles.nestedDetailCardHeaderFlexRow}>
+              <View style={styles.nestedDetailCardBadgeTokenLayoutContainer}>
+                <Feather name="shield" size={12} color={COLORS.primary} style={{ marginRight: 4 }} />
+                <Text style={styles.nestedDetailCardBadgeTokenLayoutContainerText}>Audit Log Context</Text>
+              </View>
+              <TouchableOpacity style={styles.modalCloseCircleButton} onPress={() => setSelectedHistoryLog(null)}>
+                <Feather name="x" size={14} color={COLORS.textDark} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.nestedDetailCardMainTitle}>{selectedHistoryLog?.tipCategoryName}</Text>
+            <View style={styles.nestedDividerSplitLine} />
+
+            <View style={styles.nestedHorizontalMetaBlockTileRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.nestedMetaBlockTitleLabel}>LOG IDENTIFIER</Text>
+                <Text style={styles.nestedMetaBlockValueField} numberOfLines={1}>{selectedHistoryLog?.tipLogId || "N/A"}</Text>
+              </View>
+              <View style={{ flex: 1, alignItems: "flex-end" }}>
+                <Text style={styles.nestedMetaBlockTitleLabel}>SCORE CONTRIBUTION</Text>
+                <Text style={[styles.nestedMetaBlockValueField, { color: COLORS.primary, fontWeight: "900" }]}>+{selectedHistoryLog?.scoreChange}% Gauge Vol</Text>
+              </View>
+            </View>
+
+            <View style={{ marginTop: 14 }}>
+              <Text style={styles.nestedMetaBlockTitleLabel}>VERIFIED APPLICATION TIMESTAMP</Text>
+              <Text style={styles.nestedMetaBlockValueField}>{selectedHistoryLog?.appliedAt ? new Date(selectedHistoryLog.appliedAt).toUTCString() : "Just Now"}</Text>
+            </View>
+
+            <TouchableOpacity style={[styles.modalDismissCTAButton, { backgroundColor: COLORS.primary, marginTop: 24 }]} onPress={() => setSelectedHistoryLog(null)}>
+              <Text style={styles.modalDismissCTAButtonText}>Close Audit Screen</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* ACTION STATUS FEEDBACK POPUP DISMISS WINDOW PANEL MODAL */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={successModalVisible}
-        onRequestClose={() => setSuccessModalVisible(false)}
-      >
+      <Modal animationType="fade" transparent visible={successModalVisible} onRequestClose={() => setSuccessModalVisible(false)}>
         <View style={styles.modalCenterDimmerView}>
           <View style={styles.modalSuccessAlertCard}>
             <View style={[styles.modalSuccessCheckCircleIconBadge, { backgroundColor: '#22C55E' }]}>
               <Feather name="check-circle" size={36} color="white" />
             </View>
-            <Text style={[styles.modalSuccessAlertHeadingMainText, { color: COLORS.textDark }]}>
-              Action Registered
-            </Text>
-            <Text style={[styles.modalSuccessAlertBodyParagraphText, { color: COLORS.textLight }]}>
-              {successMessage}
-            </Text>
-            <TouchableOpacity
-              style={[styles.modalDismissCTAButton, { backgroundColor: COLORS.primary }]}
-              activeOpacity={0.8}
-              onPress={() => setSuccessModalVisible(false)}
-            >
+            <Text style={styles.modalSuccessAlertHeadingMainText}>Action Registered</Text>
+            <Text style={styles.modalSuccessAlertBodyParagraphText}>{successMessage}</Text>
+            <TouchableOpacity style={[styles.modalDismissCTAButton, { backgroundColor: COLORS.primary }]} onPress={() => setSuccessModalVisible(false)}>
               <Text style={styles.modalDismissCTAButtonText}>Awesome</Text>
             </TouchableOpacity>
           </View>
@@ -571,508 +604,115 @@ export default function TipsScreen() {
 }
 
 const styles = StyleSheet.create({
-  centerSpinnerWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingProgressMessageText: {
-    marginTop: 12,
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  blurredLiquidSphere1: {
-    position: 'absolute',
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: COLORS.secondary,
-    opacity: 0.15,
-    top: '12%',
-    left: -60,
-    ...Platform.select({
-      web: { filter: 'blur(70px)' },
-    }),
-    zIndex: 0,
-  },
-  blurredLiquidSphere2: {
-    position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: COLORS.primary,
-    opacity: 0.12,
-    bottom: '25%',
-    right: -90,
-    ...Platform.select({
-      web: { filter: 'blur(85px)' },
-    }),
-    zIndex: 0,
-  },
-  blurredLiquidSphere3: {
-    position: 'absolute',
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-    backgroundColor: COLORS.darkSienna,
-    opacity: 0.14,
-    top: '48%',
-    left: '30%',
-    ...Platform.select({
-      web: { filter: 'blur(75px)' },
-    }),
-    zIndex: 0,
-  },
-  scrollContentLayoutEngine: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 60,
-  },
-  responsiveBentoConstraintWrapper: {
-    maxWidth: isDesktop ? 1200 : "100%",
-    width: "100%",
-    alignSelf: "center",
-    zIndex: 3,
-  },
-  headingDescriptionRowFlex: {
-    flexDirection: "column",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  metaSubtleInformationParagraphText: {
-    fontSize: 14,
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: 14,
-    paddingHorizontal: 16,
-  },
-  historyLogTriggerAnchorButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "rgba(51, 105, 86, 0.12)",
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.darkSienna,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-      },
-      android: { elevation: 1 },
-    }),
-  },
-  historyLogTriggerAnchorButtonText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-statCardsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 26,
-    gap: 12,
-  },
-  outerFrameContainer: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",        // Flat neutral muted gray ring frame color from image
-    borderRadius: 24,                 // Smooth layout outer tracking bounds
-    padding: 10,                      // Controls identical border structure depth padding
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.03)",
-  },
-  innerFrameContainer: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",        // Solid crisp non-shaded pure white background asset box
-    borderRadius: 4,                  // Flat visual low-curve vertical inner layout parameters
-    paddingVertical: 18,
-    paddingHorizontal: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardIconWrapperCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  cardValueTypography: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#000000",                  // Crisp pure solid black numeric labels indicators
-    letterSpacing: -0.5,
-  },
-  cardLabelTypography: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#2C3E35",                  // Clean neutral sub-text tracking color
-    marginTop: 4,
-    textAlign: "center",
-  },
-  statCardItem: {
-    flex: 1,
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 20,
-    paddingVertical: 18,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.darkSienna,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-      },
-      android: { elevation: 2 },
-    }),
-  },
-  statCardTealVariant: {
-    backgroundColor: "rgba(51, 105, 86, 0.04)",
-    borderColor: "rgba(51, 105, 86, 0.12)",
-  },
-  statCardIndigoVariant: {
-    backgroundColor: "rgba(224, 150, 67, 0.04)",
-    borderColor: "rgba(224, 150, 67, 0.12)",
-  },
-  statCardPurpleVariant: {
-    backgroundColor: "rgba(27, 66, 53, 0.04)",
-    borderColor: "rgba(27, 66, 53, 0.12)",
-  },
-  statIconBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
-  },
-  statCardValue: {
-    fontSize: 20,
-    fontWeight: "900",
-    letterSpacing: -0.5,
-  },
-  statCardLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 4,
-    textAlign: "center",
-    letterSpacing: 0.2,
-  },
-  wellbeingGaugeBentoCard: {
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 32,
-    paddingVertical: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.darkSienna,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.04,
-        shadowRadius: 16,
-      },
-      android: { elevation: 2 },
-    }),
-    zIndex: 2,
-  },
-  gaugeSectionSmallHeaderTitleText: {
-    fontSize: 13,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 24,
-  },
-  fluidCircleMeterRingFrameOuter: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    borderWidth: 5,
-    backgroundColor: "#FAFAFA",
-    position: "relative",
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-      },
-      android: { elevation: 3 },
-    }),
-  },
-  fluidCircleContainerOverflowClipHiddenLayer: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 85,
-    overflow: "hidden",
-    position: "absolute",
-  },
-  fluidLiquidBaseFillTrack: {
-    width: "100%",
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  fluidWaveMicroRibbon: {
-    position: "absolute",
-    width: screenWidth * 1.5,
-    height: 30,
-    borderRadius: 45,
-    left: -screenWidth * 0.25,
-  },
-  gaugeForegroundAbsoluteCenterLabelsStack: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10,
-  },
-  gaugePercentagePrimaryValueDisplayValueText: {
-    fontSize: 44,
-    fontWeight: "900",
-    textShadowColor: "rgba(255, 255, 255, 0.7)",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 6,
-  },
-  tipsFeedCardsListStackContainer: {
-    zIndex: 3,
-  },
-  emptyFeedFallbackCardLayout: {
-    backgroundColor: COLORS.cardBg,
+  centerSpinnerWrapper: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingProgressMessageText: { marginTop: 12, fontWeight: "600", fontSize: 14 },
+  blurredLiquidSphere1: { position: 'absolute', width: 250, height: 250, borderRadius: 125, backgroundColor: COLORS.secondary, opacity: 0.15, top: '12%', left: -60, ...Platform.select({ web: { filter: 'blur(70px)' } }), zIndex: 0 },
+  blurredLiquidSphere2: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: COLORS.primary, opacity: 0.12, bottom: '25%', right: -90, ...Platform.select({ web: { filter: 'blur(85px)' } }), zIndex: 0 },
+  blurredLiquidSphere3: { position: 'absolute', width: 210, height: 210, borderRadius: 105, backgroundColor: COLORS.darkSienna, opacity: 0.14, top: '48%', left: '30%', ...Platform.select({ web: { filter: 'blur(75px)' } }), zIndex: 0 },
+  scrollContentLayoutEngine: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 60 },
+  responsiveBentoConstraintWrapper: { maxWidth: isDesktop ? 1200 : "100%", width: "100%", alignSelf: "center", zIndex: 3 },
+  headingDescriptionRowFlex: { flexDirection: "column", alignItems: "center", marginBottom: 24 },
+  metaSubtleInformationParagraphText: { fontSize: 14, textAlign: "center", lineHeight: 20, marginBottom: 14, paddingHorizontal: 16 },
+  historyLogTriggerAnchorButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFFFFF", paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: "rgba(51, 105, 86, 0.12)" },
+  historyLogTriggerAnchorButtonText: { fontSize: 13, fontWeight: "700" },
+  statCardsContainer: { flexDirection: "row", justifyContent: "space-between", marginBottom: 26, gap: 12 },
+  outerFrameContainer: { flex: 1, backgroundColor: "#FFFFFF", borderRadius: 24, padding: 10, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0, 0, 0, 0.03)" },
+  innerFrameContainer: { width: "100%", backgroundColor: "#FFFFFF", borderRadius: 4, paddingVertical: 18, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  cardIconWrapperCircle: { width: 42, height: 42, borderRadius: 12, alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  cardValueTypography: { fontSize: 22, fontWeight: "900", color: "#000000", letterSpacing: -0.5 },
+  cardLabelTypography: { fontSize: 11, fontWeight: "700", color: "#2C3E35", marginTop: 4, textAlign: "center" },
+
+  wellbeingGaugeBentoCard: { backgroundColor: "#FFFFFF", borderRadius: 32, paddingTop: 28, paddingBottom: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(0, 0, 0, 0.02)", marginBottom: 32, shadowColor: "#1B4235", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.04, shadowRadius: 16, elevation: 2 },
+  gaugeSectionSmallHeaderTitleText: { fontSize: 13, fontWeight: "800", color: "#11231D", letterSpacing: 1, marginBottom: 12, textTransform: "uppercase" },
+  gaugeContainerAligner: { alignItems: "center", justifyContent: "center", width: "100%", height: 240 },
+
+  gridSectionHeaderLabelTitle: { fontSize: 16, fontWeight: "800", color: COLORS.textDark, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 16 },
+  tipsBentoGridLayoutWrapperMesh: { flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-start", gap: 16, width: "100%" },
+
+  gradientBorderWrapper: {
     borderRadius: 24,
-    padding: 32,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    overflow: "hidden",
   },
-  emptyFeedFallbackCardLayoutText: {
-    fontSize: 14,
-    textAlign: "center",
+  gradientBorderBackground: {
+    borderRadius: 24,
+    width: "100%",
   },
-  premiumTipDescriptionTileCardItem: {
+  gridPremiumBentoItemCardCellInner: {
     backgroundColor: COLORS.cardBg,
-    borderRadius: 28,
-    padding: 24,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderRadius: 23,
+    padding: 20,
+    width: "100%",
+    justifyContent: "flex-start",
     ...Platform.select({
-      ios: {
-        shadowColor: COLORS.darkSienna,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.03,
-        shadowRadius: 10,
-      },
+      ios: { shadowColor: COLORS.darkSienna, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 8 },
       android: { elevation: 2 },
     }),
   },
-  tipCardBadgeCounterText: {
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  tipCardMainTitleText: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: COLORS.textDark,
-  },
-  tipCardExpectedGainValueText: {
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: 6,
-    marginBottom: 14,
-  },
-  tipCardStaticDescriptionParaText: {
-    fontSize: 14,
-    lineHeight: 22,
-    marginBottom: 20,
-  },
-  applyActionButtonCTA: {
-    paddingVertical: 14,
+
+  gridCardUpperBadgeContainerFlexRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  gridCardIndexBadgeTextLabel: { fontSize: 10, fontWeight: "800", color: COLORS.textLight, letterSpacing: 0.5 },
+  scoreChangeInlineValueBadgeFloatingBox: { backgroundColor: "rgba(51, 105, 86, 0.08)", paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8 },
+  scoreChangeInlineValueBadgeFloatingBoxText: { fontSize: 11, fontWeight: "700", color: COLORS.primary },
+  gridCardMainHeadlineTextTitle: { fontSize: 18, fontWeight: "800", color: COLORS.textDark, marginBottom: 6 },
+  gridCardParagraphMutedDescriptionText: { fontSize: 13, color: COLORS.textLight, lineHeight: 18, marginBottom: 16 },
+
+  applyActionButtonCTAWrapper: {
+    width: "100%",
     borderRadius: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-  },
-  applyActionButtonCTAText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  modalSheetBlurOverlayDimmer: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(17, 35, 29, 0.3)", 
-  },
-  modalInteractiveSheetContainer: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    maxHeight: screenHeight * 0.75,
-    paddingBottom: Platform.OS === "ios" ? 44 : 24,
-    maxWidth: 600,
-    width: "100%",
-    alignSelf: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.darkSienna,
-        shadowOffset: { width: 0, height: -10 },
-        shadowOpacity: 0.08,
-        shadowRadius: 24,
-      },
-      android: { elevation: 10 },
-    }),
-  },
-  modalTopIndicatorHandle: {
-    width: 38,
-    height: 4,
-    backgroundColor: "#E2E8F0",
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 20,
-    paddingVertical: 4,
-  },
-  modalHeaderRowLayout: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  modalTitleIconContainer: {
-    padding: 8,
-    borderRadius: 12,
-    marginRight: 12,
-  },
-  modalSheetMainTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    letterSpacing: -0.3,
-  },
-  modalCloseCircleButton: {
-    backgroundColor: "#F1F5F9",
-    padding: 8,
-    borderRadius: 24,
-  },
-  emptyLogsContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 40,
-  },
-  emptyLogsFallbackText: {
-    textAlign: "center",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  logHistoryHorizontalItemTile: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FAF9F5", 
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "rgba(51, 105, 86, 0.06)",
-    position: "relative",
     overflow: "hidden",
   },
-  logHistoryBarIndicator: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-  },
-  logTileIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(51, 105, 86, 0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-    marginLeft: 4,
-  },
-  logHistoryItemTitleMainText: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  logHistoryItemTimestampSubtext: {
-    fontSize: 12,
-  },
-  scoreImpactBadgeContainer: {
-    backgroundColor: "rgba(51, 105, 86, 0.08)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  logHistoryItemScoreImpactBadgeText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#336956",
-  },
-  modalCenterDimmerView: {
-    flex: 1,
-    backgroundColor: "rgba(17, 35, 29, 0.3)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  modalSuccessAlertCard: {
-    backgroundColor: "white",
-    borderRadius: 24,
-    padding: 24,
-    width: "100%",
-    maxWidth: 340,
-    alignItems: "center",
-  },
-  modalSuccessCheckCircleIconBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  modalSuccessAlertHeadingMainText: {
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 6,
-  },
-  modalSuccessAlertBodyParagraphText: {
-    fontSize: 13,
-    textAlign: "center",
-    lineHeight: 18,
-    marginBottom: 20,
-  },
-  modalDismissCTAButton: {
+  applyActionButtonCTAGradient: {
     paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    width: "100%",
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
   },
-  modalDismissCTAButtonText: {
-    color: "white",
-    fontWeight: "700",
-    fontSize: 14,
-  },
+  applyActionButtonCTAText: { color: "white", fontSize: 13, fontWeight: "700" },
+
+  modalSheetBlurOverlayDimmer: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(17, 35, 29, 0.3)" },
+  modalInteractiveSheetContainer: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 24, paddingTop: 12, maxHeight: screenHeight * 0.75, paddingBottom: Platform.OS === "ios" ? 44 : 24, maxWidth: 600, width: "100%", alignSelf: "center", ...Platform.select({ ios: { shadowColor: COLORS.darkSienna, shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.08, shadowRadius: 24 }, android: { elevation: 10 } }) },
+  modalTopIndicatorHandle: { width: 38, height: 4, backgroundColor: "#E2E8F0", borderRadius: 2, alignSelf: "center", marginBottom: 20, paddingVertical: 4 },
+  modalHeaderRowLayout: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
+  modalTitleIconContainer: { padding: 8, borderRadius: 12, marginRight: 12 },
+  modalSheetMainTitle: { fontSize: 20, fontWeight: "800", letterSpacing: -0.3 },
+  modalCloseCircleButton: { backgroundColor: "#F1F5F9", padding: 8, borderRadius: 24 },
+  emptyLogsContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 40 },
+  emptyLogsFallbackText: { textAlign: "center", fontSize: 14, fontWeight: "500" },
+  logHistoryHorizontalItemTile: { flexDirection: "row", alignItems: "center", backgroundColor: "#FAF9F5", borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 12, borderWidth: 1, borderColor: "rgba(51, 105, 86, 0.06)", position: "relative", overflow: "hidden" },
+  logHistoryBarIndicator: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4 },
+  logTileIconBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: "rgba(51, 105, 86, 0.08)", alignItems: "center", justifyContent: "center", marginRight: 12, marginLeft: 4 },
+  logHistoryItemTitleMainText: { fontSize: 15, fontWeight: "700" },
+  logHistoryItemTimestampSubtext: { fontSize: 12, color: "#576860" },
+  scoreImpactBadgeContainer: { backgroundColor: "rgba(51, 105, 86, 0.08)", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  logHistoryItemScoreImpactBadgeText: { fontSize: 13, fontWeight: "800", color: "#336956" },
+
+  modalCenterDimmerView: { flex: 1, backgroundColor: "rgba(17, 35, 29, 0.4)", justifyContent: "center", alignItems: "center", padding: 24 },
+  modalSuccessAlertCard: { backgroundColor: "white", borderRadius: 24, padding: 24, width: "100%", maxWidth: 340, alignItems: "center" },
+  modalSuccessCheckCircleIconBadge: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", marginBottom: 16 },
+  modalSuccessAlertHeadingMainText: { fontSize: 20, fontWeight: "800", marginBottom: 6 },
+  modalSuccessAlertBodyParagraphText: { fontSize: 13, textAlign: "center", lineHeight: 18, marginBottom: 20 },
+  modalDismissCTAButton: { paddingVertical: 12, borderRadius: 12, width: "100%", alignItems: "center" },
+  modalDismissCTAButtonText: { color: "white", fontWeight: "700", fontSize: 14 },
+
+  expandedDetailCoreDisplayBentoCardFrame: { backgroundColor: "#FFFFFF", borderRadius: 28, padding: 24, width: "90%", maxWidth: 480, maxHeight: screenHeight * 0.8, borderWidth: 1, borderColor: COLORS.border, elevation: 24, overflow: "hidden" },
+  detailCardStickyHeaderRowFlex: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", borderBottomWidth: 1, borderBottomColor: "#F1F5F9", paddingBottom: 14, marginBottom: 4 },
+  detailCardCategoryMicroLabelBadge: { fontSize: 10, fontWeight: "800", color: COLORS.secondary, letterSpacing: 0.6, marginBottom: 4 },
+  detailCardMainTitleText: { fontSize: 19, fontWeight: "800", color: COLORS.textDark, lineHeight: 24 },
+  detailCardParagraphBodyContent: { fontSize: 14, color: COLORS.textLight, lineHeight: 22, textAlign: "left" },
+  detailCardFooterScoreIndicatorBoxRowFlex: { backgroundColor: "#FAF9F5", padding: 12, borderRadius: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, flexWrap: "wrap", gap: 6 },
+  detailCardFooterScoreIndicatorBoxRowFlexLabel: { fontSize: 11, fontWeight: "700", color: COLORS.textLight },
+  detailCardFooterScoreIndicatorBoxRowFlexValue: { fontSize: 12, fontWeight: "800", color: COLORS.primary },
+
+  nestedHistoryLogDetailCardContainerSheetBox: { backgroundColor: "#FFFFFF", borderRadius: 28, padding: 24, maxWidth: 440, width: "100%", borderWidth: 1, borderColor: COLORS.border },
+  nestedDetailCardHeaderFlexRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  nestedDetailCardBadgeTokenLayoutContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(51, 105, 86, 0.06)", paddingVertical: 4, paddingHorizontal: 10, borderRadius: 8 },
+  nestedDetailCardBadgeTokenLayoutContainerText: { fontSize: 11, fontWeight: "700", color: COLORS.primary },
+  nestedDetailCardMainTitle: { fontSize: 20, fontWeight: "800", color: COLORS.textDark, marginBottom: 14 },
+  nestedDividerSplitLine: { height: 1, backgroundColor: "#E2E8F0", marginBottom: 16 },
+  nestedHorizontalMetaBlockTileRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  nestedMetaBlockTitleLabel: { fontSize: 10, fontWeight: "800", color: COLORS.textLight, letterSpacing: 0.5, marginBottom: 4 },
+  nestedMetaBlockValueField: { fontSize: 14, fontWeight: "700", color: COLORS.textDark },
+  emptyFeedFallbackCardLayout: { width: "100%", padding: 32, backgroundColor: "#FFFFFF", borderRadius: 24, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: COLORS.border },
+  emptyFeedFallbackCardLayoutText: { fontSize: 13, textAlign: "center", lineHeight: 18 },
 });

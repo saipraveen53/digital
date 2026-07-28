@@ -1,12 +1,12 @@
-// app/(admin)/banners.tsx
 import {
-    Calendar,
-    Eye,
-    Filter,
-    Image,
+    CheckCircle,
+    Edit2,
+    Image as ImageIcon,
     Plus,
     RefreshCw,
     Search,
+    ToggleLeft,
+    ToggleRight,
     X
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -14,10 +14,10 @@ import {
     ActivityIndicator,
     Alert,
     Modal,
-    Platform,
     Pressable,
     RefreshControl,
     ScrollView,
+    StyleSheet,
     Text,
     TextInput,
     View,
@@ -25,7 +25,7 @@ import {
 } from 'react-native';
 import { rootApi } from '../utils/axiosInstance';
 
-// Types based on Swagger
+// Types
 interface BannerResponse {
     bannerId: string;
     name: string;
@@ -37,7 +37,114 @@ interface BannerRequest {
     description: string;
 }
 
-// Add Banner Modal Component
+// ─── ACTION SUCCESS MODAL ──────────────────────────────────────
+function StatusSuccessModal({
+    visible,
+    message,
+    onClose
+}: {
+    visible: boolean;
+    message: string;
+    onClose: () => void;
+}) {
+    return (
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+            <View style={styles.modalOverlay}>
+                <View style={styles.successModalContainer}>
+                    <CheckCircle size={50} color="#10b981" />
+                    <Text style={styles.successModalText}>{message}</Text>
+                    <Pressable style={styles.successModalBtn} onPress={onClose}>
+                        <Text style={styles.successModalBtnText}>OK</Text>
+                    </Pressable>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
+// ─── UPDATE BANNER MODAL ────────────────────────────────────────
+function UpdateBannerModal({
+    visible,
+    banner,
+    onClose,
+    onSuccess
+}: {
+    visible: boolean;
+    banner: BannerResponse | null;
+    onClose: () => void;
+    onSuccess: (msg: string) => void;
+}) {
+    const [isLoading, setIsLoading] = useState(false);
+    const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        if (banner) {
+            setName(banner.name);
+            setDescription(banner.description);
+        }
+    }, [banner, visible]);
+
+    const handleUpdate = async () => {
+        if (!name.trim() || !description.trim()) {
+            setError('All fields are required');
+            return;
+        }
+        setIsLoading(true);
+        setError('');
+        try {
+            await rootApi.put(`/api/banner/update`, {
+                name: name.trim(),
+                description: description.trim()
+            }, {
+                params: { bannerId: banner?.bannerId }
+            });
+            onSuccess('Banner updated successfully');
+            onClose();
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Failed to update banner');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+            <View style={styles.modalOverlay}>
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Update Banner</Text>
+                        <Pressable onPress={onClose} hitSlop={10}>
+                            <X size={20} color="#64748b" />
+                        </Pressable>
+                    </View>
+                    <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+                        {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Banner Name *</Text>
+                            <TextInput style={styles.input} value={name} onChangeText={setName} editable={!isLoading} />
+                        </View>
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Description *</Text>
+                            <TextInput style={[styles.input, styles.textArea]} multiline numberOfLines={4} value={description} onChangeText={setDescription} editable={!isLoading} />
+                        </View>
+                    </ScrollView>
+                    <View style={styles.modalFooter}>
+                        <Pressable onPress={onClose} style={[styles.btn, styles.btnCancel]} disabled={isLoading}>
+                            <Text style={styles.btnCancelText}>Cancel</Text>
+                        </Pressable>
+                        <Pressable onPress={handleUpdate} style={[styles.btn, styles.btnCreate]} disabled={isLoading}>
+                            {isLoading ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.btnCreateText}>Update</Text>}
+                        </Pressable>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
+// ─── ADD BANNER MODAL ──────────────────────────────────────────
 function AddBannerModal({
     visible,
     onClose,
@@ -48,138 +155,55 @@ function AddBannerModal({
     onSuccess: () => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
-    const [formData, setFormData] = useState<BannerRequest>({
-        name: '',
-        description: '',
-    });
+    const [formData, setFormData] = useState<BannerRequest>({ name: '', description: '' });
     const [error, setError] = useState('');
-    const { width } = useWindowDimensions();
-    const isAndroid = Platform.OS === 'android';
 
     const handleSubmit = async () => {
-        if (!formData.name.trim()) {
-            setError('Please enter banner name');
+        if (!formData.name.trim() || !formData.description.trim()) {
+            setError('Please fill in all fields');
             return;
         }
-        if (!formData.description.trim()) {
-            setError('Please enter banner description');
-            return;
-        }
-
         setError('');
         setIsLoading(true);
-
         try {
             await rootApi.post<BannerResponse>('/api/banner/create', formData);
-            Alert.alert('Success', 'Banner created successfully');
-            
-            setFormData({
-                name: '',
-                description: '',
-            });
+            setFormData({ name: '', description: '' });
             onSuccess();
             onClose();
         } catch (error: any) {
-            console.error('Error saving banner:', error);
-            setError(error.response?.data?.message || 'Failed to save banner. Please try again.');
+            setError(error.response?.data?.message || 'Failed to save banner.');
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={onClose}
-        >
-            <View className="flex-1 bg-black/50 justify-center items-center p-4">
-                <View className="bg-white rounded-2xl w-full max-w-md overflow-hidden" style={{ marginTop: isAndroid ? 40 : 0 }}>
-                    {/* Header */}
-                    <View className="flex-row justify-between items-center p-5 border-b border-slate-100">
-                        <Text className="text-xl font-bold text-slate-900">Create New Banner</Text>
-                        <Pressable onPress={onClose} className="p-1" hitSlop={10}>
+        <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+            <View style={styles.modalOverlay}>
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Create New Banner</Text>
+                        <Pressable onPress={onClose} hitSlop={10}>
                             <X size={20} color="#64748b" />
                         </Pressable>
                     </View>
-
-                    {/* Form */}
-                    <ScrollView 
-                        className="p-5" 
-                        showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        <View className="gap-4">
-                            {error ? (
-                                <View className="bg-red-50 border border-red-200 rounded-xl p-3">
-                                    <Text className="text-red-600 text-sm">{error}</Text>
-                                </View>
-                            ) : null}
-
-                            <View>
-                                <Text className="text-slate-700 font-semibold mb-2">Banner Name *</Text>
-                                <TextInput
-                                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800"
-                                    placeholder="e.g., Summer Sale 2026"
-                                    placeholderTextColor="#94a3b8"
-                                    value={formData.name}
-                                    onChangeText={(text) => setFormData({ ...formData, name: text })}
-                                    editable={!isLoading}
-                                />
-                            </View>
-
-                            <View>
-                                <Text className="text-slate-700 font-semibold mb-2">Description *</Text>
-                                <TextInput
-                                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800"
-                                    placeholder="Describe the banner content..."
-                                    placeholderTextColor="#94a3b8"
-                                    multiline
-                                    numberOfLines={4}
-                                    textAlignVertical="top"
-                                    value={formData.description}
-                                    onChangeText={(text) => setFormData({ ...formData, description: text })}
-                                    editable={!isLoading}
-                                />
-                            </View>
-
-                            {/* Preview Section */}
-                            <View className="mt-4">
-                                <Text className="text-slate-700 font-semibold mb-2">Preview</Text>
-                                <View className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-xl p-4 overflow-hidden">
-                                    <View className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
-                                    <View className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12" />
-                                    <Text className="text-white font-bold text-lg mb-2">
-                                        {formData.name || 'Banner Title'}
-                                    </Text>
-                                    <Text className="text-white/90 text-sm">
-                                        {formData.description || 'Banner description will appear here'}
-                                    </Text>
-                                </View>
-                            </View>
+                    <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                        {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Banner Name *</Text>
+                            <TextInput style={styles.input} placeholder="e.g., Summer Sale 2026" placeholderTextColor="#94a3b8" value={formData.name} onChangeText={(text) => setFormData({ ...formData, name: text })} editable={!isLoading} />
+                        </View>
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Description *</Text>
+                            <TextInput style={[styles.input, styles.textArea]} placeholder="Describe the banner content..." placeholderTextColor="#94a3b8" multiline numberOfLines={4} textAlignVertical="top" value={formData.description} onChangeText={(text) => setFormData({ ...formData, description: text })} editable={!isLoading} />
                         </View>
                     </ScrollView>
-
-                    {/* Footer */}
-                    <View className="flex-row gap-3 p-5 border-t border-slate-100">
-                        <Pressable
-                            onPress={onClose}
-                            className="flex-1 py-3 rounded-xl border border-slate-200"
-                            disabled={isLoading}
-                        >
-                            <Text className="text-slate-700 font-medium text-center">Cancel</Text>
+                    <View style={styles.modalFooter}>
+                        <Pressable onPress={onClose} style={[styles.btn, styles.btnCancel]} disabled={isLoading}>
+                            <Text style={styles.btnCancelText}>Cancel</Text>
                         </Pressable>
-                        <Pressable
-                            onPress={handleSubmit}
-                            className="flex-1 py-3 rounded-xl bg-teal-600"
-                            disabled={isLoading}
-                        >
-                            {isLoading ? (
-                                <ActivityIndicator color="white" size="small" />
-                            ) : (
-                                <Text className="text-white font-medium text-center">Create</Text>
-                            )}
+                        <Pressable onPress={handleSubmit} style={[styles.btn, styles.btnCreate]} disabled={isLoading}>
+                            {isLoading ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.btnCreateText}>Create</Text>}
                         </Pressable>
                     </View>
                 </View>
@@ -188,187 +212,95 @@ function AddBannerModal({
     );
 }
 
-// View Banner Details Modal
-function ViewBannerModal({
-    visible,
-    onClose,
-    banner
-}: {
-    visible: boolean;
-    onClose: () => void;
-    banner: BannerResponse | null;
-}) {
-    const isAndroid = Platform.OS === 'android';
-    
-    if (!banner) return null;
-
-    return (
-        <Modal
-            visible={visible}
-            animationType="fade"
-            transparent={true}
-            onRequestClose={onClose}
-        >
-            <View className="flex-1 bg-black/50 justify-center items-center p-4">
-                <View className="bg-white rounded-2xl w-full max-w-md overflow-hidden" style={{ marginTop: isAndroid ? 40 : 0 }}>
-                    <View className="p-6">
-                        <View className="flex-row justify-between items-center mb-4">
-                            <Text className="text-xl font-bold text-slate-900">Banner Details</Text>
-                            <Pressable onPress={onClose} className="p-1" hitSlop={10}>
-                                <X size={20} color="#64748b" />
-                            </Pressable>
-                        </View>
-
-                        {/* Banner Preview */}
-                        <View className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-xl p-6 mb-6 overflow-hidden">
-                            <View className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
-                            <View className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12" />
-                            <Text className="text-white font-bold text-xl mb-3">{banner.name}</Text>
-                            <Text className="text-white/90 text-base leading-5">{banner.description}</Text>
-                        </View>
-
-                        {/* Banner Info */}
-                        <View className="gap-4">
-                            <View className="flex-row items-center gap-3">
-                                <View className="bg-teal-50 p-2 rounded-lg">
-                                    <Image size={18} color="#0d9488" />
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="text-slate-500 text-xs">Banner ID</Text>
-                                    <Text className="text-slate-900 font-medium text-sm">{banner.bannerId}</Text>
-                                </View>
-                            </View>
-                            <View className="flex-row items-center gap-3">
-                                <View className="bg-blue-50 p-2 rounded-lg">
-                                    <Calendar size={18} color="#3b82f6" />
-                                </View>
-                                <View className="flex-1">
-                                    <Text className="text-slate-500 text-xs">Created</Text>
-                                    <Text className="text-slate-900 font-medium text-sm">{new Date().toLocaleDateString()}</Text>
-                                </View>
-                            </View>
-                        </View>
-
-                        <Pressable
-                            onPress={onClose}
-                            className="mt-6 py-3 rounded-xl bg-teal-600"
-                        >
-                            <Text className="text-white font-medium text-center">Close</Text>
-                        </Pressable>
-                    </View>
-                </View>
-            </View>
-        </Modal>
-    );
-}
-
+// ─── MAIN COMPONENT ─────────────────────────────────────────────
 export default function BannerManagement() {
+    const { width } = useWindowDimensions();
+    const isMobile = width < 768;
+    const isTablet = width >= 768 && width < 1024;
+    const isDesktop = width >= 1024;
+
     const [searchQuery, setSearchQuery] = useState('');
-    const [banners, setBanners] = useState<BannerResponse[]>([]);
+    const [activeBanners, setActiveBanners] = useState<BannerResponse[]>([]);
+    const [inactiveBanners, setInactiveBanners] = useState<BannerResponse[]>([]);
+    const [currentTab, setCurrentTab] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
     const [filteredBanners, setFilteredBanners] = useState<BannerResponse[]>([]);
+    
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [error, setError] = useState('');
-    const [modalVisible, setModalVisible] = useState(false);
-    const [viewModalVisible, setViewModalVisible] = useState(false);
-    const [selectedBanner, setSelectedBanner] = useState<BannerResponse | null>(null);
-    const { width } = useWindowDimensions();
-    const isAndroid = Platform.OS === 'android';
-    const isSmallScreen = width < 400;
+    
+    // Success Modal Configurations
+    const [successVisible, setSuccessVisible] = useState(false);
+    const [successMsg, setSuccessMsg] = useState('');
 
-    // Fetch all banners using GET /api/banner/all
-    const fetchAllBanners = async () => {
+    // Modals visibility triggers
+    const [createModalVisible, setCreateModalVisible] = useState(false);
+    const [updateModalVisible, setUpdateModalVisible] = useState(false);
+    const [selectedBanner, setSelectedBanner] = useState<BannerResponse | null>(null);
+
+    // Fetch banners by status endpoint context pipeline
+    const fetchBannersData = async () => {
         try {
-            setError('');
-            const response = await rootApi.get<BannerResponse[]>('/api/banner/all');
-            setBanners(response.data);
-            setFilteredBanners(response.data);
-        } catch (error: any) {
-            console.error('Error fetching banners:', error);
-            setError(error.response?.data?.message || 'Failed to fetch banners');
-            setBanners([]);
-            setFilteredBanners([]);
+            setIsLoading(true);
+            const [activeRes, inactiveRes] = await Promise.all([
+                rootApi.get<BannerResponse[]>('/api/banner/getByStatus', { params: { status: true } }),
+                rootApi.get<BannerResponse[]>('/api/banner/getByStatus', { params: { status: false } })
+            ]);
+            setActiveBanners(activeRes.data || []);
+            setInactiveBanners(inactiveRes.data || []);
+        } catch (error) {
+            console.error('Error loading banners dynamic context:', error);
         } finally {
             setIsLoading(false);
             setRefreshing(false);
         }
     };
 
-    // Handle refresh
-    const onRefresh = () => {
-        setRefreshing(true);
-        fetchAllBanners();
+    // Toggle status pipeline trigger
+    const handleStatusChange = async (bannerId: string, targetStatus: boolean) => {
+        try {
+            await rootApi.put('/api/banner/changeStatus', null, {
+                params: { bannerId, status: targetStatus }
+            });
+            setSuccessMsg(targetStatus ? 'Activated' : 'Deactivated');
+            setSuccessVisible(true);
+            fetchBannersData();
+        } catch (err) {
+            Alert.alert('Status Error', 'Could not update banner lifecycle mapping state.');
+        }
     };
 
-    // Handle search
+    const triggerSuccessCallback = (message: string) => {
+        setSuccessMsg(message);
+        setSuccessVisible(true);
+        fetchBannersData();
+    };
+
     useEffect(() => {
+        fetchBannersData();
+    }, []);
+
+    useEffect(() => {
+        const sourceList = currentTab === 'ACTIVE' ? activeBanners : inactiveBanners;
         if (searchQuery.trim() === '') {
-            setFilteredBanners(banners);
+            setFilteredBanners(sourceList);
         } else {
-            const filtered = banners.filter(banner => 
-                banner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                banner.description.toLowerCase().includes(searchQuery.toLowerCase())
+            const filtered = sourceList.filter(b =>
+                b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                b.description.toLowerCase().includes(searchQuery.toLowerCase())
             );
             setFilteredBanners(filtered);
         }
-    }, [searchQuery, banners]);
+    }, [searchQuery, activeBanners, inactiveBanners, currentTab]);
 
-    // Initial load
-    useEffect(() => {
-        fetchAllBanners();
-    }, []);
-
-    // Calculate stats based on fetched data
-    const totalBanners = banners.length;
-    const avgDescriptionLength = banners.length > 0 
-        ? Math.round(banners.reduce((sum, b) => sum + b.description.length, 0) / banners.length) 
-        : 0;
-
-    const statsCards = [
-        {
-            title: 'Total Banners',
-            value: totalBanners.toString(),
-            icon: Image,
-            change: `+${totalBanners}`,
-            color: '#0d9488',
-            bgColor: '#ccfbf1',
-            description: 'Total banners'
-        },
-        {
-            title: 'Avg. Length',
-            value: `${avgDescriptionLength}`,
-            icon: Eye,
-            change: 'chars',
-            color: '#8b5cf6',
-            bgColor: '#f3e8ff',
-            description: 'Average description'
-        },
-        {
-            title: 'Active Banners',
-            value: totalBanners.toString(),
-            icon: Eye,
-            change: 'Active',
-            color: '#10b981',
-            bgColor: '#d1fae5',
-            description: 'All banners active'
-        },
-        {
-            title: 'Impressions',
-            value: '0',
-            icon: Eye,
-            change: 'Coming soon',
-            color: '#3b82f6',
-            bgColor: '#dbeafe',
-            description: 'Analytics coming'
-        },
-    ];
+    const cardWidth = isDesktop ? '33.33%' : (isTablet ? '50%' : '100%');
+    const cardPadding = isDesktop ? 8 : (isTablet ? 8 : 0);
 
     if (isLoading && !refreshing) {
         return (
-            <View className="flex-1 bg-slate-50 items-center justify-center">
-                <View className="bg-white rounded-xl p-8 items-center shadow-sm border border-slate-200">
-                    <RefreshCw size={32} color="#0d9488" className="animate-spin" />
-                    <Text className="text-slate-600 mt-4">Loading banners...</Text>
+            <View style={styles.loadingContainer}>
+                <View style={styles.loadingBox}>
+                    <RefreshCw size={32} color="#0d9488" />
+                    <Text style={styles.loadingText}>Loading banners content setup...</Text>
                 </View>
             </View>
         );
@@ -376,136 +308,84 @@ export default function BannerManagement() {
 
     return (
         <>
-            <ScrollView 
-                className="flex-1 bg-slate-50" 
+            <ScrollView
+                style={styles.container}
                 showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0d9488']} />
-                }
-                contentContainerStyle={{ paddingBottom: isAndroid ? 20 : 0 }}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchBannersData(); }} colors={['#0d9488']} />}
+                contentContainerStyle={styles.scrollContent}
             >
-                <View className={isSmallScreen ? "p-3" : "p-4"}>
+                <View style={[styles.wrapper, isMobile && styles.wrapperMobile]}>
                     {/* Header */}
-                    <View className="flex-row flex-wrap justify-between items-center gap-3 mb-6">
-                        <View className="flex-1">
-                            <Text className="text-xl md:text-2xl font-bold text-slate-900">Banner Management</Text>
-                            <Text className="text-slate-600 text-sm mt-1">Create and manage promotional banners</Text>
+                    <View style={styles.header}>
+                        <View style={styles.headerLeft}>
+                            <Text style={styles.headerTitle}>Banner Management</Text>
+                            <Text style={styles.headerSubtitle}>View, filter, update or toggle active state promotions</Text>
                         </View>
-                        <Pressable 
-                            onPress={() => setModalVisible(true)}
-                            className="bg-teal-600 px-3 md:px-4 py-2.5 rounded-xl flex-row items-center gap-2 shadow-sm"
-                            style={{ minWidth: isSmallScreen ? 'auto' : undefined }}
-                        >
-                            <Plus size={isSmallScreen ? 16 : 18} color="white" />
-                            <Text className="text-white font-medium text-sm md:text-base">
-                                {isSmallScreen ? 'Create' : 'Create Banner'}
-                            </Text>
+                        <Pressable onPress={() => setCreateModalVisible(true)} style={styles.createBtn}>
+                            <Plus size={16} color="white" />
+                            <Text style={styles.createBtnText}>Create Banner</Text>
                         </Pressable>
                     </View>
 
-                    {/* Error Message */}
-                    {error ? (
-                        <View className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-                            <Text className="text-red-600 text-sm">{error}</Text>
-                            <Pressable onPress={fetchAllBanners} className="mt-2">
-                                <Text className="text-red-700 font-medium text-sm">Try Again →</Text>
-                            </Pressable>
-                        </View>
-                    ) : null}
-
-                    {/* Stats Bento Grid */}
-                    <View className="flex-row flex-wrap -mx-2 mb-6">
-                        {statsCards.map((stat, index) => (
-                            <View key={index} className="w-1/2 px-2 mb-4">
-                                <View className="bg-white rounded-xl border border-slate-200 p-3 md:p-4 shadow-sm">
-                                    <View className="flex-row justify-between items-start mb-3">
-                                        <View className={`p-2 rounded-lg`} style={{ backgroundColor: stat.bgColor }}>
-                                            <stat.icon size={isSmallScreen ? 16 : 20} color={stat.color} />
-                                        </View>
-                                        <Text className={`text-xs font-medium ${stat.change.startsWith('+') ? 'text-emerald-600' : 'text-slate-500'}`}>
-                                            {stat.change}
-                                        </Text>
-                                    </View>
-                                    <Text className="text-slate-500 text-xs md:text-sm">{stat.title}</Text>
-                                    <Text className="text-xl md:text-2xl font-bold text-slate-900 mt-1">{stat.value}</Text>
-                                    <Text className="text-slate-400 text-xs mt-2">{stat.description}</Text>
-                                </View>
-                            </View>
-                        ))}
+                    {/* Mode/Status Tabs Controller View */}
+                    <View style={styles.tabContainer}>
+                        <Pressable style={[styles.tabButton, currentTab === 'ACTIVE' && styles.tabButtonActive]} onPress={() => setCurrentTab('ACTIVE')}>
+                            <Text style={[styles.tabButtonText, currentTab === 'ACTIVE' && styles.tabButtonTextActive]}>Active ({activeBanners.length})</Text>
+                        </Pressable>
+                        <Pressable style={[styles.tabButton, currentTab === 'INACTIVE' && styles.tabButtonActive]} onPress={() => setCurrentTab('INACTIVE')}>
+                            <Text style={[styles.tabButtonText, currentTab === 'INACTIVE' && styles.tabButtonTextActive]}>Inactive ({inactiveBanners.length})</Text>
+                        </Pressable>
                     </View>
 
-                    {/* Search Bar */}
-                    <View className="flex-row gap-3 mb-6">
-                        <View className="flex-1 bg-white rounded-xl border border-slate-200 px-3 md:px-4 py-3 flex-row items-center gap-2">
+                    {/* Search Field */}
+                    <View style={styles.searchRow}>
+                        <View style={styles.searchBox}>
                             <Search size={18} color="#94a3b8" />
-                            <TextInput
-                                className="flex-1 text-slate-700 text-sm md:text-base"
-                                placeholder="Search banners by name or description..."
-                                placeholderTextColor="#94a3b8"
-                                value={searchQuery}
-                                onChangeText={setSearchQuery}
-                            />
+                            <TextInput style={styles.searchInput} placeholder={`Search ${currentTab.toLowerCase()} banners...`} placeholderTextColor="#94a3b8" value={searchQuery} onChangeText={setSearchQuery} />
                             {searchQuery ? (
                                 <Pressable onPress={() => setSearchQuery('')} hitSlop={10}>
                                     <X size={16} color="#94a3b8" />
                                 </Pressable>
                             ) : null}
                         </View>
-                        <Pressable className="bg-white rounded-xl border border-slate-200 px-3 md:px-4 py-3 items-center justify-center">
-                            <Filter size={18} color="#64748b" />
-                        </Pressable>
                     </View>
 
-                    {/* Banners Grid */}
+                    {/* Banners Output Distribution Matrix Grid */}
                     {filteredBanners.length > 0 ? (
-                        <View className="flex-row flex-wrap -mx-2">
+                        <View style={styles.gridContainer}>
                             {filteredBanners.map((banner) => (
-                                <View key={banner.bannerId} className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                                    <View className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                                        {/* Banner Preview */}
-                                        <Pressable 
-                                            onPress={() => {
-                                                setSelectedBanner(banner);
-                                                setViewModalVisible(true);
-                                            }}
-                                        >
-                                            <View className="bg-gradient-to-r from-teal-500 to-teal-600 p-4 md:p-5 overflow-hidden">
-                                                <View className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16" />
-                                                <View className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12" />
-                                                <Text className="text-white font-bold text-base md:text-lg mb-2">{banner.name}</Text>
-                                                <Text className="text-white/90 text-xs md:text-sm line-clamp-2">{banner.description}</Text>
-                                            </View>
-                                        </Pressable>
+                                <View key={banner.bannerId} style={{ width: cardWidth, paddingBottom: 16, paddingHorizontal: cardPadding }}>
+                                    <View style={styles.card}>
+                                        <View style={[styles.cardPreview, currentTab === 'INACTIVE' && { backgroundColor: '#64748b' }]}>
+                                            <Text style={styles.cardPreviewTitle}>{banner.name}</Text>
+                                            <Text style={styles.cardPreviewDesc} numberOfLines={2}>{banner.description}</Text>
+                                        </View>
 
-                                        {/* Banner Details */}
-                                        <View className="p-3 md:p-4">
-                                            <View className="flex-row items-center gap-2 mb-3">
-                                                <View className="bg-teal-50 p-1.5 rounded-lg">
-                                                    <Image size={14} color="#0d9488" />
-                                                </View>
-                                                <Text className="text-slate-500 text-xs">
-                                                    ID: {banner.bannerId.slice(0, 8)}...
-                                                </Text>
+                                        <View style={styles.cardBody}>
+                                            <View style={styles.cardMeta}>
+                                                <ImageIcon size={14} color={currentTab === 'ACTIVE' ? "#0d9488" : "#64748b"} />
+                                                <Text style={styles.cardMetaText}>ID: {banner.bannerId}</Text>
                                             </View>
 
-                                            <Text className="text-slate-600 text-xs md:text-sm leading-5 mb-4">
-                                                {banner.description.length > 80 
-                                                    ? banner.description.substring(0, 80) + '...' 
-                                                    : banner.description}
-                                            </Text>
-
-                                            {/* Action Buttons */}
-                                            <View className="flex-row gap-2">
-                                                <Pressable 
-                                                    onPress={() => {
-                                                        setSelectedBanner(banner);
-                                                        setViewModalVisible(true);
-                                                    }}
-                                                    className="flex-1 flex-row items-center justify-center gap-2 py-2 bg-blue-50 rounded-lg"
-                                                >
-                                                    <Eye size={14} color="#3b82f6" />
-                                                    <Text className="text-blue-700 text-xs md:text-sm font-medium">View Details</Text>
-                                                </Pressable>
+                                            {/* Action Operational Buttons Cluster row stack */}
+                                            <View style={styles.actionClusterRow}>
+                                                {currentTab === 'ACTIVE' ? (
+                                                    <>
+                                                        <Pressable style={[styles.actionBtn, styles.btnDeactivate]} onPress={() => handleStatusChange(banner.bannerId, false)}>
+                                                            <ToggleLeft size={14} color="#dc2626" />
+                                                            <Text style={styles.deactivateText}>Deactivate</Text>
+                                                        </Pressable>
+                                                        <Pressable style={[styles.actionBtn, styles.btnUpdate]} onPress={() => { setSelectedBanner(banner); setUpdateModalVisible(true); }}>
+                                                            <Edit2 size={14} color="#0d9488" />
+                                                            <Text style={styles.updateText}>Update</Text>
+                                                        </Pressable>
+                                                    </>
+                                                ) : (
+                                                    <Pressable style={[styles.actionBtn, styles.btnActivate]} onPress={() => handleStatusChange(banner.bannerId, true)}>
+                                                        <ToggleRight size={14} color="#10b981" />
+                                                        <Text style={styles.activateText}>Activate</Text>
+                                                    </Pressable>
+                                                )}
                                             </View>
                                         </View>
                                     </View>
@@ -513,57 +393,84 @@ export default function BannerManagement() {
                             ))}
                         </View>
                     ) : (
-                        /* Empty State */
-                        <View className="bg-white rounded-xl border border-slate-200 p-8 md:p-12 items-center">
-                            <Image size={48} color="#cbd5e1" />
-                            <Text className="text-slate-900 font-semibold text-lg mt-4">No Banners Found</Text>
-                            <Text className="text-slate-500 text-center text-sm mt-2 mb-6">
-                                {searchQuery ? 'No banners match your search criteria' : 'Create your first banner to promote your content'}
-                            </Text>
-                            {!searchQuery && (
-                                <Pressable 
-                                    onPress={() => setModalVisible(true)}
-                                    className="bg-teal-600 px-6 py-3 rounded-xl flex-row items-center gap-2"
-                                >
-                                    <Plus size={18} color="white" />
-                                    <Text className="text-white font-medium">Create Your First Banner</Text>
-                                </Pressable>
-                            )}
+                        <View style={styles.emptyState}>
+                            <ImageIcon size={48} color="#cbd5e1" />
+                            <Text style={styles.emptyTitle}>No Banners Found</Text>
+                            <Text style={styles.emptySub}>No elements match the active filter pipeline indexes.</Text>
                         </View>
                     )}
-
-                    {/* API Endpoint Documentation */}
-                    <View className="mt-6 bg-blue-50 rounded-xl border border-blue-200 p-4">
-                        <Text className="text-blue-800 font-semibold mb-2 text-sm md:text-base">📡 API Endpoints Implemented:</Text>
-                        <View className="gap-1">
-                            <Text className="text-blue-700 text-xs">✓ GET /api/banner/all - Fetch all banners</Text>
-                            <Text className="text-blue-700 text-xs">✓ POST /api/banner/create - Create new banner</Text>
-                        </View>
-                        <Text className="text-blue-600 text-xs mt-2">
-                            ℹ️ Note: Edit and Delete functionality requires additional backend endpoints (PUT/DELETE)
-                        </Text>
-                    </View>
                 </View>
             </ScrollView>
 
-            {/* Add Banner Modal */}
-            <AddBannerModal
-                visible={modalVisible}
-                onClose={() => setModalVisible(false)}
-                onSuccess={() => {
-                    fetchAllBanners();
-                }}
-            />
-
-            {/* View Banner Modal */}
-            <ViewBannerModal
-                visible={viewModalVisible}
-                onClose={() => {
-                    setViewModalVisible(false);
-                    setSelectedBanner(null);
-                }}
-                banner={selectedBanner}
-            />
+            {/* Modals Hooks Layout Render Tree */}
+            <AddBannerModal visible={createModalVisible} onClose={() => setCreateModalVisible(false)} onSuccess={() => triggerSuccessCallback('Banner created successfully')} />
+            <UpdateBannerModal visible={updateModalVisible} banner={selectedBanner} onClose={() => { setUpdateModalVisible(false); setSelectedBanner(null); }} onSuccess={triggerSuccessCallback} />
+            <StatusSuccessModal visible={successVisible} message={successMsg} onClose={() => setSuccessVisible(false)} />
         </>
     );
 }
+
+// ─── STYLES ──────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#f8fafc' },
+    scrollContent: { paddingBottom: 20 },
+    wrapper: { padding: 16 },
+    wrapperMobile: { padding: 12 },
+    loadingContainer: { flex: 1, backgroundColor: '#f8fafc', alignItems: 'center', justifyContent: 'center' },
+    loadingBox: { backgroundColor: 'white', borderRadius: 12, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
+    loadingText: { color: '#64748b', marginTop: 12 },
+    header: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    headerLeft: { flex: 1, marginRight: 12 },
+    headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#0f172a' },
+    headerSubtitle: { color: '#64748b', fontSize: 14, marginTop: 2 },
+    createBtn: { backgroundColor: '#0d9488', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    createBtnText: { color: 'white', fontWeight: '600', fontSize: 14 },
+    tabContainer: { flexDirection: 'row', backgroundColor: '#e2e8f0', borderRadius: 10, padding: 4, marginBottom: 16 },
+    tabButton: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+    tabButtonActive: { backgroundColor: 'white', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+    tabButtonText: { fontSize: 14, fontWeight: '600', color: '#64748b' },
+    tabButtonTextActive: { color: '#0f172a' },
+    searchRow: { flexDirection: 'row', marginBottom: 16 },
+    searchBox: { flex: 1, backgroundColor: 'white', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    searchInput: { flex: 1, color: '#0f172a', fontSize: 14, padding: 0 },
+    gridContainer: { flexDirection: 'row', flexWrap: 'wrap', width: '100%' },
+    card: { flex: 1, backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', overflow: 'hidden', justifyContent: 'space-between' },
+    cardPreview: { backgroundColor: '#0d9488', padding: 16, minHeight: 80, justifyContent: 'center' },
+    cardPreviewTitle: { color: 'white', fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
+    cardPreviewDesc: { color: 'rgba(255,255,255,0.9)', fontSize: 13 },
+    cardBody: { padding: 12, flex: 1 },
+    cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+    cardMetaText: { color: '#64748b', fontSize: 11, fontWeight: '500' },
+    actionClusterRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+    actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+    btnDeactivate: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+    btnUpdate: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
+    btnActivate: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
+    deactivateText: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
+    updateText: { color: '#0d9488', fontSize: 12, fontWeight: '600' },
+    activateText: { color: '#10b981', fontSize: 12, fontWeight: '600' },
+    emptyState: { backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', padding: 40, alignItems: 'center', width: '100%' },
+    emptyTitle: { color: '#0f172a', fontWeight: 'bold', fontSize: 18, marginTop: 12 },
+    emptySub: { color: '#64748b', textAlign: 'center', marginTop: 4, fontSize: 14 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+    modalContainer: { backgroundColor: 'white', borderRadius: 16, width: '100%', maxWidth: 450, maxHeight: '85%', overflow: 'hidden' },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+    modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#0f172a' },
+    modalBody: { padding: 20 },
+    modalFooter: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+    btn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    btnCancel: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+    btnCancelText: { color: '#475569', fontWeight: '600' },
+    btnCreate: { backgroundColor: '#0d9488' },
+    btnCreateText: { color: 'white', fontWeight: '600' },
+    formGroup: { marginBottom: 16 },
+    label: { color: '#334155', fontWeight: '600', marginBottom: 4, fontSize: 14 },
+    input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: '#0f172a' },
+    textArea: { minHeight: 80, textAlignVertical: 'top' },
+    errorBox: { backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', borderRadius: 12, padding: 12, marginBottom: 16 },
+    errorText: { color: '#dc2626', fontSize: 14 },
+    successModalContainer: { backgroundColor: 'white', padding: 24, borderRadius: 20, width: '80%', maxWidth: 300, alignItems: 'center', gap: 14 },
+    successModalText: { fontSize: 16, fontWeight: '700', color: '#0f172a', textAlign: 'center' },
+    successModalBtn: { backgroundColor: '#10b981', paddingVertical: 10, paddingHorizontal: 24, borderRadius: 10, minWidth: 100, alignItems: 'center' },
+    successModalBtnText: { color: 'white', fontWeight: '600', fontSize: 14 }
+});

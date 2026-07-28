@@ -1,8 +1,6 @@
-// app/(admin)/subscriptions.tsx
-import { Calendar, Crown, DollarSign, Edit2, Plus, RefreshCw, Trash2, Users, Zap } from 'lucide-react-native';
+import { CheckCircle, Crown, Edit2, Plus, RefreshCw, ToggleLeft, ToggleRight, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Alert, Platform, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions } from 'react-native';
-import AddSubscriptionModal from '../components/AddSubscriptionModal';
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { rootApi } from '../utils/axiosInstance';
 
 interface Subscription {
@@ -12,152 +10,392 @@ interface Subscription {
   price: number;
   durationDays: number;
   status: boolean;
+  // additional fields from API response (not used in UI)
+  discountAmount?: number;
+  finalPrice?: number;
 }
 
+// ─── ACTION SUCCESS MODAL ──────────────────────────────────────
+function StatusSuccessModal({
+  visible,
+  message,
+  onClose
+}: {
+  visible: boolean;
+  message: string;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View className="flex-1 bg-black/50 justify-center items-center p-4">
+        <View className="bg-white p-6 rounded-2xl w-4/5 max-w-[300px] items-center gap-4 shadow-xl">
+          <CheckCircle size={50} color="#10b981" />
+          <Text className="text-base font-bold text-slate-900 text-center">{message}</Text>
+          <Pressable className="bg-emerald-500 py-2.5 px-6 rounded-xl min-w-[100px] items-center" onPress={onClose}>
+            <Text className="text-white font-semibold text-sm">OK</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── CREATE SUBSCRIPTION MODAL ──────────────────────────────────
+function AddSubscriptionModal({
+  visible,
+  onClose,
+  onSuccess
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onSuccess: (msg: string) => void;
+}) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [subName, setSubName] = useState('');
+  const [subDescription, setSubDescription] = useState('');
+  const [price, setPrice] = useState('');
+  const [discountPercentage, setDiscountPercentage] = useState('');
+  const [durationDays, setDurationDays] = useState('');
+  const [trialPlan, setTrialPlan] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleCreate = async () => {
+    if (!subName.trim() || !subDescription.trim() || !price.trim() || !durationDays.trim()) {
+      setError('All fields except discount are required');
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    try {
+      await rootApi.post('/api/admin/create/subscription', {
+        subName: subName.trim(),
+        subDescription: subDescription.trim(),
+        price: Number(price),
+        discountPercentage: discountPercentage ? Number(discountPercentage) : 0,
+        durationDays: Number(durationDays),
+        trialPlan
+      });
+      onSuccess('Subscription created successfully');
+      onClose();
+      // reset form
+      setSubName('');
+      setSubDescription('');
+      setPrice('');
+      setDiscountPercentage('');
+      setDurationDays('');
+      setTrialPlan(false);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to create subscription');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View className="flex-1 bg-black/50 justify-center items-center p-4">
+        <View className="bg-white rounded-2xl w-full max-w-[450px] max-h-[85%] overflow-hidden shadow-xl">
+          <View className="flex-row justify-between items-center px-5 py-4 border-b border-slate-100">
+            <Text className="text-lg font-bold text-slate-900">Create Subscription Plan</Text>
+            <Pressable onPress={onClose} hitSlop={10}>
+              <X size={20} color="#64748b" />
+            </Pressable>
+          </View>
+          <ScrollView className="p-5" keyboardShouldPersistTaps="handled">
+            {error ? <View className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4"><Text className="text-red-600 text-sm">{error}</Text></View> : null}
+            <View className="mb-4">
+              <Text className="text-slate-700 font-semibold mb-1 text-sm">Plan Name *</Text>
+              <TextInput
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm"
+                value={subName}
+                onChangeText={setSubName}
+                editable={!isLoading}
+              />
+            </View>
+            <View className="mb-4">
+              <Text className="text-slate-700 font-semibold mb-1 text-sm">Description *</Text>
+              <TextInput
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm min-h-[80px]"
+                multiline
+                numberOfLines={4}
+                value={subDescription}
+                onChangeText={setSubDescription}
+                editable={!isLoading}
+                textAlignVertical="top"
+              />
+            </View>
+            <View className="mb-4">
+              <Text className="text-slate-700 font-semibold mb-1 text-sm">Price ($) *</Text>
+              <TextInput
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm"
+                keyboardType="numeric"
+                value={price}
+                onChangeText={setPrice}
+                editable={!isLoading}
+              />
+            </View>
+            <View className="mb-4">
+              <Text className="text-slate-700 font-semibold mb-1 text-sm">Discount (%)</Text>
+              <TextInput
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm"
+                keyboardType="numeric"
+                value={discountPercentage}
+                onChangeText={setDiscountPercentage}
+                editable={!isLoading}
+                placeholder="0"
+              />
+            </View>
+            <View className="mb-4">
+              <Text className="text-slate-700 font-semibold mb-1 text-sm">Duration (Days) *</Text>
+              <TextInput
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm"
+                keyboardType="numeric"
+                value={durationDays}
+                onChangeText={setDurationDays}
+                editable={!isLoading}
+              />
+            </View>
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-slate-700 font-semibold text-sm">Trial Plan</Text>
+              <Switch
+                value={trialPlan}
+                onValueChange={setTrialPlan}
+                trackColor={{ false: '#cbd5e1', true: '#0d9488' }}
+                thumbColor={trialPlan ? '#ffffff' : '#f4f4f4'}
+                disabled={isLoading}
+              />
+            </View>
+          </ScrollView>
+          <View className="flex-row gap-3 px-5 py-4 border-t border-slate-100">
+            <Pressable onPress={onClose} className="flex-1 py-3 rounded-xl items-center justify-center bg-slate-100 border border-slate-200" disabled={isLoading}>
+              <Text className="text-slate-600 font-semibold">Cancel</Text>
+            </Pressable>
+            <Pressable onPress={handleCreate} className="flex-1 py-3 rounded-xl items-center justify-center bg-teal-600" disabled={isLoading}>
+              {isLoading ? <ActivityIndicator color="white" size="small" /> : <Text className="text-white font-semibold">Create Plan</Text>}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── UPDATE SUBSCRIPTION MODAL ──────────────────────────────────
+function UpdateSubscriptionModal({
+  visible,
+  subscription,
+  onClose,
+  onSuccess
+}: {
+  visible: boolean;
+  subscription: Subscription | null;
+  onClose: () => void;
+  onSuccess: (msg: string) => void;
+}) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [subName, setSubName] = useState('');
+  const [subDescription, setSubDescription] = useState('');
+  const [price, setPrice] = useState('');
+  const [discountPercentage, setDiscountPercentage] = useState('');
+  const [durationDays, setDurationDays] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (subscription) {
+      setSubName(subscription.subName);
+      setSubDescription(subscription.subDescription);
+      setPrice(subscription.price.toString());
+      setDurationDays(subscription.durationDays.toString());
+      // discountPercentage is not available from the current subscription object, leave empty
+      setDiscountPercentage('');
+    }
+  }, [subscription, visible]);
+
+  const handleUpdate = async () => {
+    if (!subName.trim() || !subDescription.trim() || !price.trim() || !durationDays.trim()) {
+      setError('All fields are required');
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    try {
+      await rootApi.put('/api/admin/updateSubscription', {
+        subName: subName.trim(),
+        subDescription: subDescription.trim(),
+        price: Number(price),
+        discountPercentage: discountPercentage ? Number(discountPercentage) : 0,
+        durationDays: Number(durationDays)
+      }, {
+        params: { subId: subscription?.subId }
+      });
+      onSuccess('Subscription updated successfully');
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update subscription');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View className="flex-1 bg-black/50 justify-center items-center p-4">
+        <View className="bg-white rounded-2xl w-full max-w-[450px] max-h-[85%] overflow-hidden shadow-xl">
+          <View className="flex-row justify-between items-center px-5 py-4 border-b border-slate-100">
+            <Text className="text-lg font-bold text-slate-900">Update Subscription Plan</Text>
+            <Pressable onPress={onClose} hitSlop={10}>
+              <X size={20} color="#64748b" />
+            </Pressable>
+          </View>
+          <ScrollView className="p-5" keyboardShouldPersistTaps="handled">
+            {error ? <View className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4"><Text className="text-red-600 text-sm">{error}</Text></View> : null}
+            <View className="mb-4">
+              <Text className="text-slate-700 font-semibold mb-1 text-sm">Plan Name *</Text>
+              <TextInput
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm"
+                value={subName}
+                onChangeText={setSubName}
+                editable={!isLoading}
+              />
+            </View>
+            <View className="mb-4">
+              <Text className="text-slate-700 font-semibold mb-1 text-sm">Description *</Text>
+              <TextInput
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm min-h-[80px]"
+                multiline
+                numberOfLines={4}
+                value={subDescription}
+                onChangeText={setSubDescription}
+                editable={!isLoading}
+                textAlignVertical="top"
+              />
+            </View>
+            <View className="mb-4">
+              <Text className="text-slate-700 font-semibold mb-1 text-sm">Price ($) *</Text>
+              <TextInput
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm"
+                keyboardType="numeric"
+                value={price}
+                onChangeText={setPrice}
+                editable={!isLoading}
+              />
+            </View>
+            <View className="mb-4">
+              <Text className="text-slate-700 font-semibold mb-1 text-sm">Discount (%)</Text>
+              <TextInput
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm"
+                keyboardType="numeric"
+                value={discountPercentage}
+                onChangeText={setDiscountPercentage}
+                editable={!isLoading}
+                placeholder="0"
+              />
+            </View>
+            <View className="mb-4">
+              <Text className="text-slate-700 font-semibold mb-1 text-sm">Duration (Days) *</Text>
+              <TextInput
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm"
+                keyboardType="numeric"
+                value={durationDays}
+                onChangeText={setDurationDays}
+                editable={!isLoading}
+              />
+            </View>
+          </ScrollView>
+          <View className="flex-row gap-3 px-5 py-4 border-t border-slate-100">
+            <Pressable onPress={onClose} className="flex-1 py-3 rounded-xl items-center justify-center bg-slate-100 border border-slate-200" disabled={isLoading}>
+              <Text className="text-slate-600 font-semibold">Cancel</Text>
+            </Pressable>
+            <Pressable onPress={handleUpdate} className="flex-1 py-3 rounded-xl items-center justify-center bg-teal-600" disabled={isLoading}>
+              {isLoading ? <ActivityIndicator color="white" size="small" /> : <Text className="text-white font-semibold">Update Plan</Text>}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── MAIN COMPONENT ─────────────────────────────────────────────
 export default function Subscriptions() {
   const [modalVisible, setModalVisible] = useState(false);
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [activePlans, setActivePlans] = useState<Subscription[]>([]);
+  const [inactivePlans, setInactivePlans] = useState<Subscription[]>([]);
+  const [currentTab, setCurrentTab] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
+
+  // Success Modal
+  const [successVisible, setSuccessVisible] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+
+  // Update Modal
+  const [updateModalVisible, setUpdateModalVisible] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<Subscription | null>(null);
+
   const { width } = useWindowDimensions();
   const isAndroid = Platform.OS === 'android';
   const isSmallScreen = width < 400;
 
-  // Fetch all subscriptions from API
-  const fetchSubscriptions = async () => {
+  // Fetch subscriptions
+  const fetchSubscriptionsData = async () => {
     try {
-      setError('');
-      const response = await rootApi.get('/api/admin/allSubscriptions');
-      
-      // Response should be an array of SubscriptionResponse objects
-      const data = response.data;
-      
-      if (Array.isArray(data)) {
-        setSubscriptions(data);
-      } else {
-        console.error('Unexpected response format:', data);
-        setSubscriptions([]);
-      }
-    } catch (error: any) {
-      console.error('Error fetching subscriptions:', error);
-      setError(error.response?.data?.message || 'Failed to fetch subscriptions');
-      setSubscriptions([]);
+      setIsLoading(true);
+      const [activeRes, inactiveRes] = await Promise.all([
+        rootApi.get<Subscription[]>('/api/admin/getByStatus', { params: { status: true } }),
+        rootApi.get<Subscription[]>('/api/admin/getByStatus', { params: { status: false } })
+      ]);
+      setActivePlans(activeRes.data || []);
+      setInactivePlans(inactiveRes.data || []);
+    } catch (error) {
+      console.error('Error fetching subscription records:', error);
     } finally {
       setIsLoading(false);
       setRefreshing(false);
     }
   };
 
-  // Delete subscription
-  const deleteSubscription = async (subId: string, subName: string) => {
-    Alert.alert(
-      'Delete Subscription',
-      `Are you sure you want to delete "${subName}"? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              Alert.alert('Info', 'Delete endpoint not implemented yet. Please add DELETE /api/admin/subscription/{subId} to your backend.');
-            } catch (error: any) {
-              Alert.alert('Error', error.response?.data?.message || 'Failed to delete subscription');
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  // Toggle subscription status
-  const toggleSubscriptionStatus = async (subscription: Subscription) => {
+  // Toggle status
+  const handleStatusChange = async (subId: string, targetStatus: boolean) => {
     try {
-      Alert.alert('Info', 'Update endpoint not implemented yet. Please add PUT /api/admin/subscription/{subId} to your backend.');
-    } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to update subscription status');
+      await rootApi.put('/api/admin/changeStatus', null, {
+        params: { subId, status: targetStatus }
+      });
+      setSuccessMsg(targetStatus ? 'Activated' : 'Deactivated');
+      setSuccessVisible(true);
+      fetchSubscriptionsData();
+    } catch (err) {
+      Alert.alert('Status Error', 'Could not complete status toggle.');
     }
   };
 
-  // Edit subscription
-  const editSubscription = (subscription: Subscription) => {
-    Alert.alert('Info', 'Edit functionality coming soon. Please implement PUT /api/admin/subscription/{subId} endpoint.');
+  const triggerSuccessCallback = (message: string) => {
+    setSuccessMsg(message);
+    setSuccessVisible(true);
+    fetchSubscriptionsData();
   };
 
-  // Initial load
   useEffect(() => {
-    fetchSubscriptions();
+    fetchSubscriptionsData();
   }, []);
 
-  // Handle refresh
   const onRefresh = () => {
     setRefreshing(true);
-    fetchSubscriptions();
+    fetchSubscriptionsData();
   };
 
-  // Calculate stats based on fetched data
-  const activeSubscriptions = subscriptions.filter(s => s.status === true);
-  const totalRevenue = subscriptions.reduce((sum, s) => s.status ? sum + s.price : sum, 0);
-  
-  const statsCards = [
-    {
-      title: 'Total Plans',
-      value: subscriptions.length.toString(),
-      icon: Crown,
-      change: `+${subscriptions.length}`,
-      color: '#f59e0b',
-      bgColor: '#fef3c7',
-      description: 'Total subscription plans'
-    },
-    {
-      title: 'Active Plans',
-      value: activeSubscriptions.length.toString(),
-      icon: Zap,
-      change: activeSubscriptions.length > 0 ? 'Active' : 'None',
-      color: '#10b981',
-      bgColor: '#d1fae5',
-      description: 'Currently active plans'
-    },
-    {
-      title: 'Monthly Revenue',
-      value: `$${totalRevenue.toFixed(2)}`,
-      icon: DollarSign,
-      change: `Based on ${activeSubscriptions.length} plans`,
-      color: '#0d9488',
-      bgColor: '#ccfbf1',
-      description: 'Total monthly potential'
-    },
-    {
-      title: 'Total Subscribers',
-      value: '0',
-      icon: Users,
-      change: 'Coming soon',
-      color: '#3b82f6',
-      bgColor: '#dbeafe',
-      description: 'Active subscribers'
-    },
-  ];
-
+  const displayList = currentTab === 'ACTIVE' ? activePlans : inactivePlans;
   const getPlanColor = (index: number) => {
-    const colors = ['#0d9488', '#8b5cf6', '#f59e0b', '#ec4899', '#3b82f6', '#10b981', '#ef4444', '#06b6d4'];
+    const colors = ['#0d9488', '#8b5cf6', '#f59e0b', '#ec4899', '#3b82f6'];
     return colors[index % colors.length];
   };
 
-  const getDurationText = (days: number) => {
-    if (days === 30) return 'month';
-    if (days === 365) return 'year';
-    if (days === 7) return 'week';
-    return `${days} days`;
-  };
-
-  // Loading state
-  if (isLoading) {
+  if (isLoading && !refreshing) {
     return (
       <View className="flex-1 bg-slate-50 items-center justify-center">
         <View className="bg-white rounded-xl p-8 items-center shadow-sm border border-slate-200">
           <RefreshCw size={32} color="#0d9488" />
-          <Text className="text-slate-600 mt-4">Loading subscriptions...</Text>
+          <Text className="text-slate-600 mt-4">Loading configurations matrix...</Text>
         </View>
       </View>
     );
@@ -165,178 +403,77 @@ export default function Subscriptions() {
 
   return (
     <>
-      <ScrollView 
-        className="flex-1 bg-slate-50" 
+      <ScrollView
+        className="flex-1 bg-slate-50"
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0d9488']} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0d9488']} />}
         contentContainerStyle={{ paddingBottom: isAndroid ? 20 : 0 }}
       >
         <View className={isSmallScreen ? "p-3" : "p-4"}>
-          {/* Header with Create Button */}
+          {/* Header */}
           <View className="flex-row flex-wrap justify-between items-center gap-3 mb-6">
             <View className="flex-1">
               <Text className="text-xl md:text-2xl font-bold text-slate-900">Subscriptions</Text>
-              <Text className="text-slate-600 text-sm mt-1">Manage user subscription plans</Text>
+              <Text className="text-slate-600 text-sm mt-1">Manage standard and custom enterprise tiers</Text>
             </View>
-            <View className="flex-row gap-2">
-              <Pressable 
-                onPress={onRefresh}
-                className="bg-white px-3 md:px-4 py-2.5 rounded-xl flex-row items-center gap-2 border border-slate-200"
-                disabled={refreshing}
-              >
-                <RefreshCw size={isSmallScreen ? 14 : 18} color="#64748b" />
-                {!isSmallScreen && <Text className="text-slate-700 font-medium">Refresh</Text>}
-              </Pressable>
-              <Pressable 
-                onPress={() => setModalVisible(true)}
-                className="bg-teal-600 px-3 md:px-4 py-2.5 rounded-xl flex-row items-center gap-2 shadow-sm"
-              >
-                <Plus size={isSmallScreen ? 16 : 18} color="white" />
-                <Text className="text-white font-medium text-sm md:text-base">
-                  {isSmallScreen ? 'Create' : 'Create Plan'}
-                </Text>
-              </Pressable>
-            </View>
+            <Pressable onPress={() => setModalVisible(true)} className="bg-teal-600 px-4 py-2.5 rounded-xl flex-row items-center gap-2 shadow-sm">
+              <Plus size={16} color="white" />
+              <Text className="text-white font-medium text-sm">Create Plan</Text>
+            </Pressable>
           </View>
 
-          {/* Error Message */}
-          {error ? (
-            <View className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-              <Text className="text-red-600 text-sm">{error}</Text>
-              <Pressable onPress={fetchSubscriptions} className="mt-2">
-                <Text className="text-red-700 font-medium text-sm">Try Again →</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {/* Stats Bento Grid */}
-          <View className="flex-row flex-wrap -mx-2 mb-6">
-            {statsCards.map((stat, index) => (
-              <View key={index} className="w-1/2 px-2 mb-4">
-                <View className="bg-white rounded-xl border border-slate-200 p-3 md:p-4 shadow-sm">
-                  <View className="flex-row justify-between items-start mb-3">
-                    <View className={`p-2 rounded-lg`} style={{ backgroundColor: stat.bgColor }}>
-                      <stat.icon size={isSmallScreen ? 16 : 20} color={stat.color} />
-                    </View>
-                    <Text className={`text-xs font-medium ${stat.change.startsWith('+') ? 'text-emerald-600' : 'text-slate-500'}`}>
-                      {stat.change}
-                    </Text>
-                  </View>
-                  <Text className="text-slate-500 text-xs md:text-sm">{stat.title}</Text>
-                  <Text className="text-xl md:text-2xl font-bold text-slate-900 mt-1">{stat.value}</Text>
-                  <Text className="text-slate-400 text-xs mt-2">{stat.description}</Text>
-                </View>
-              </View>
-            ))}
+          {/* Tabs */}
+          <View className="flex-row bg-slate-200 rounded-xl padding p-1 mb-6">
+            <Pressable className={`flex-1 py-2.5 items-center rounded-lg ${currentTab === 'ACTIVE' ? 'bg-white shadow-sm' : ''}`} onPress={() => setCurrentTab('ACTIVE')}>
+              <Text className={`font-semibold text-sm ${currentTab === 'ACTIVE' ? 'text-slate-900' : 'text-slate-500'}`}>Active ({activePlans.length})</Text>
+            </Pressable>
+            <Pressable className={`flex-1 py-2.5 items-center rounded-lg ${currentTab === 'INACTIVE' ? 'bg-white shadow-sm' : ''}`} onPress={() => setCurrentTab('INACTIVE')}>
+              <Text className={`font-semibold text-sm ${currentTab === 'INACTIVE' ? 'text-slate-900' : 'text-slate-500'}`}>Inactive ({inactivePlans.length})</Text>
+            </Pressable>
           </View>
 
-          {/* Subscriptions Bento Grid */}
-          {subscriptions.length > 0 ? (
+          {/* Plan Cards */}
+          {displayList.length > 0 ? (
             <View className="flex-row flex-wrap -mx-2">
-              {subscriptions.map((subscription, index) => {
-                const planColor = getPlanColor(index);
-                const durationText = getDurationText(subscription.durationDays);
-                
+              {displayList.map((subscription, index) => {
+                const planColor = currentTab === 'ACTIVE' ? getPlanColor(index) : '#64748b';
                 return (
                   <View key={subscription.subId} className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
                     <View className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                      {/* Color Accent Bar */}
                       <View className="h-1" style={{ backgroundColor: planColor }} />
-                      
-                      {/* Plan Header */}
                       <View className="p-4 md:p-5 border-b border-slate-100">
-                        <View className="flex-row flex-wrap justify-between items-start gap-2 mb-3">
-                          <View className="flex-row items-center gap-2 flex-1">
-                            <View className={`p-2 rounded-lg`} style={{ backgroundColor: `${planColor}15` }}>
-                              <Crown size={isSmallScreen ? 14 : 18} color={planColor} />
-                            </View>
-                            <Text className="text-base md:text-lg font-bold text-slate-900 flex-1">{subscription.subName}</Text>
-                          </View>
-                          <Pressable 
-                            onPress={() => toggleSubscriptionStatus(subscription)}
-                            className={`px-2 py-1 rounded-full ${subscription.status ? 'bg-green-100' : 'bg-red-100'}`}
-                            hitSlop={10}
-                          >
-                            <Text className={`text-xs font-medium ${subscription.status ? 'text-green-700' : 'text-red-700'}`}>
-                              {subscription.status ? 'Active' : 'Inactive'}
-                            </Text>
-                          </Pressable>
+                        <View className="flex-row items-center gap-2 mb-2">
+                          <Crown size={16} color={planColor} />
+                          <Text className="text-base font-bold text-slate-900 flex-1">{subscription.subName}</Text>
                         </View>
-                        <Text className="text-slate-600 text-xs md:text-sm leading-5">
-                          {subscription.subDescription}
-                        </Text>
+                        <Text className="text-slate-600 text-xs md:text-sm leading-5">{subscription.subDescription}</Text>
                       </View>
-
-                      {/* Price Section */}
                       <View className="p-4 md:p-5 bg-slate-50 border-b border-slate-100">
-                        <View className="flex-row items-baseline flex-wrap gap-1 mb-2">
-                          <Text className="text-2xl md:text-3xl font-bold text-slate-900">${subscription.price}</Text>
-                          <Text className="text-slate-500 text-sm md:text-base">
-                            / {durationText}
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center gap-2">
-                          <Calendar size={14} color="#64748b" />
-                          <Text className="text-slate-500 text-xs">
-                            {subscription.durationDays} days duration
-                          </Text>
-                        </View>
+                        <Text className="text-2xl font-bold text-slate-900">₹{subscription.finalPrice?.toFixed(2) || subscription.price.toFixed(2)} <Text className="text-slate-500 text-sm font-normal">/ {subscription.discountAmount ? `${subscription.discountAmount.toFixed(2)} off` : 'No discount'}</Text></Text>
+                          <Text className="text-slate-500 text-xs font-normal">/ {subscription.durationDays} days</Text>
                       </View>
-
-                      {/* Features Preview */}
-                      <View className="p-4 md:p-5 gap-3">
-                        <Text className="text-slate-700 font-semibold text-xs md:text-sm">What's included:</Text>
-                        <View className="gap-2">
-                          <View className="flex-row items-center gap-2">
-                            <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: planColor }} />
-                            <Text className="text-slate-600 text-xs md:text-sm">Full access to all features</Text>
-                          </View>
-                          <View className="flex-row items-center gap-2">
-                            <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: planColor }} />
-                            <Text className="text-slate-600 text-xs md:text-sm">AI-powered recovery tips</Text>
-                          </View>
-                          <View className="flex-row items-center gap-2">
-                            <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: planColor }} />
-                            <Text className="text-slate-600 text-xs md:text-sm">Weekly trends & analytics</Text>
-                          </View>
-                          {subscription.durationDays === 365 && (
-                            <View className="flex-row items-center gap-2">
-                              <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: planColor }} />
-                              <Text className="text-slate-600 text-xs md:text-sm">Priority support</Text>
-                            </View>
-                          )}
-                          {subscription.durationDays === 30 && (
-                            <View className="flex-row items-center gap-2">
-                              <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: planColor }} />
-                              <Text className="text-slate-600 text-xs md:text-sm">Monthly billing</Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-
-                      {/* Subscription ID */}
-                      <View className="px-4 md:px-5 pb-2">
+                      <View className="px-5 py-2">
                         <Text className="text-slate-400 text-xs">ID: {subscription.subId}</Text>
                       </View>
-
-                      {/* Action Buttons */}
-                      <View className="flex-row p-3 md:p-4 gap-2 border-t border-slate-100">
-                        <Pressable 
-                          onPress={() => editSubscription(subscription)}
-                          className="flex-1 flex-row items-center justify-center gap-2 py-2 md:py-2.5 bg-blue-50 rounded-lg"
-                        >
-                          <Edit2 size={14} color="#3b82f6" />
-                          <Text className="text-blue-700 text-xs md:text-sm font-medium">Edit</Text>
-                        </Pressable>
-                        <Pressable 
-                          onPress={() => deleteSubscription(subscription.subId, subscription.subName)}
-                          className="flex-1 flex-row items-center justify-center gap-2 py-2 md:py-2.5 bg-red-50 rounded-lg"
-                        >
-                          <Trash2 size={14} color="#ef4444" />
-                          <Text className="text-red-700 text-xs md:text-sm font-medium">Delete</Text>
-                        </Pressable>
+                      {/* Actions */}
+                      <View className="flex-row p-3 gap-2 border-t border-slate-100">
+                        {currentTab === 'ACTIVE' ? (
+                          <>
+                            <Pressable onPress={() => handleStatusChange(subscription.subId, false)} className="flex-1 flex-row items-center justify-center gap-1.5 py-2 bg-red-50 border border-red-100 rounded-lg">
+                              <ToggleLeft size={14} color="#ef4444" />
+                              <Text className="text-red-700 text-xs font-semibold">Deactivate</Text>
+                            </Pressable>
+                            <Pressable onPress={() => { setSelectedPlan(subscription); setUpdateModalVisible(true); }} className="flex-1 flex-row items-center justify-center gap-1.5 py-2 bg-emerald-50 border border-emerald-100 rounded-lg">
+                              <Edit2 size={14} color="#0d9488" />
+                              <Text className="text-teal-800 text-xs font-semibold">Update</Text>
+                            </Pressable>
+                          </>
+                        ) : (
+                          <Pressable onPress={() => handleStatusChange(subscription.subId, true)} className="flex-1 flex-row items-center justify-center gap-1.5 py-2 bg-green-50 border border-green-100 rounded-lg">
+                            <ToggleRight size={14} color="#22c55e" />
+                            <Text className="text-green-700 text-xs font-semibold">Activate</Text>
+                          </Pressable>
+                        )}
                       </View>
                     </View>
                   </View>
@@ -344,56 +481,30 @@ export default function Subscriptions() {
               })}
             </View>
           ) : (
-            /* Empty State */
-            <View className="bg-white rounded-xl border border-slate-200 p-8 md:p-12 items-center">
-              <Crown size={48} color="#cbd5e1" />
-              <Text className="text-slate-900 font-semibold text-lg mt-4">No Subscriptions Yet</Text>
-              <Text className="text-slate-500 text-center text-sm mt-2 mb-6">
-                Create your first subscription plan to start offering premium features
-              </Text>
-              <Pressable 
-                onPress={() => setModalVisible(true)}
-                className="bg-teal-600 px-6 py-3 rounded-xl flex-row items-center gap-2"
-              >
-                <Plus size={18} color="white" />
-                <Text className="text-white font-medium">Create Your First Plan</Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* Footer Stats */}
-          {subscriptions.length > 0 && (
-            <View className="mt-6 bg-white rounded-xl border border-slate-200 p-4">
-              <View className="flex-row flex-wrap justify-between items-center gap-3">
-                <View className="flex-1 min-w-[100px]">
-                  <Text className="text-slate-500 text-xs md:text-sm">Total Plans Created</Text>
-                  <Text className="text-xl md:text-2xl font-bold text-slate-900">{subscriptions.length}</Text>
-                </View>
-                <View className="w-px h-8 bg-slate-200" />
-                <View className="flex-1 min-w-[100px]">
-                  <Text className="text-slate-500 text-xs md:text-sm">Active Plans</Text>
-                  <Text className="text-xl md:text-2xl font-bold text-green-600">{activeSubscriptions.length}</Text>
-                </View>
-                <View className="w-px h-8 bg-slate-200" />
-                <View className="flex-1 min-w-[100px]">
-                  <Text className="text-slate-500 text-xs md:text-sm">Price Range</Text>
-                  <Text className="text-slate-900 font-semibold text-sm md:text-base">
-                    {subscriptions.length > 0 ? `$${Math.min(...subscriptions.map(s => s.price))} - $${Math.max(...subscriptions.map(s => s.price))}` : 'N/A'}
-                  </Text>
-                </View>
-              </View>
+            <View className="bg-white rounded-xl border border-slate-200 p-8 items-center">
+              <Crown size={44} color="#cbd5e1" />
+              <Text className="text-slate-900 font-semibold text-base mt-3">No plans in this category.</Text>
             </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Add Subscription Modal */}
+      {/* Modals */}
       <AddSubscriptionModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        onSuccess={() => {
-          fetchSubscriptions();
-        }}
+        onSuccess={triggerSuccessCallback}
+      />
+      <UpdateSubscriptionModal
+        visible={updateModalVisible}
+        subscription={selectedPlan}
+        onClose={() => { setUpdateModalVisible(false); setSelectedPlan(null); }}
+        onSuccess={triggerSuccessCallback}
+      />
+      <StatusSuccessModal
+        visible={successVisible}
+        message={successMsg}
+        onClose={() => setSuccessVisible(false)}
       />
     </>
   );

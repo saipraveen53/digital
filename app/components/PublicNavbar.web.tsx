@@ -1,7 +1,8 @@
 import { usePathname, useRouter } from "expo-router";
-import { Droplets, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
+import { Image } from "react-native";
 
 interface PublicNavbarProps {
   user?: any;
@@ -12,6 +13,8 @@ export default function PublicNavbar({ user }: PublicNavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+
+  const logoSource = require("../../assets/images/logo2.png");
 
   useEffect(() => {
     const handleScroll = (e: any) => {
@@ -28,6 +31,7 @@ export default function PublicNavbar({ user }: PublicNavbarProps) {
     { name: "About", path: "/about" },
     { name: "Features", path: "/features" },
     { name: "Pricing", path: "/pricing" },
+    { name: "User Guide", path: "/faq" },
   ];
 
   const isHome = pathname === "/" || pathname === "";
@@ -44,16 +48,26 @@ export default function PublicNavbar({ user }: PublicNavbarProps) {
             : "bg-transparent"
         }`}
       >
-        <div className="w-full px-6 md:px-12 lg:px-24 h-24 flex items-center justify-between">
-          <button onClick={() => router.push("/")} className="flex items-center gap-3 group">
-            <div className="w-12 h-12 rounded-[14px] bg-[#3E7B6A] flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-              <Droplets size={26} className="text-white" />
-            </div>
-            <div className="flex flex-col items-start leading-none gap-1">
-              <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: "1.75rem" }} className="text-gray-900">
+        <div className="w-full px-2 md:px-4 lg:px-24 h-24 flex items-center justify-between">
+          <button onClick={() => router.push("/")} className="flex items-center gap-3 group border-none bg-transparent cursor-pointer outline-none">
+            <Image
+              source={logoSource}
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: 12,
+                objectFit: "cover"
+              }}
+            />
+            
+            <div className="flex flex-col items-start justify-center text-left">
+              <span 
+                style={{ fontFamily: "'DM Serif Display', serif" }} 
+                className="text-gray-900 text-xl md:text-2xl font-normal leading-tight"
+              >
                 Wellbeing
               </span>
-              <span className="text-[#3E7B6A] text-[12px] font-bold uppercase tracking-[0.25em] ml-0.5">
+              <span className="text-[#3E7B6A] text-[10px] md:text-[11px] font-bold uppercase tracking-[0.25em] leading-none mt-0.5">
                 Gauge
               </span>
             </div>
@@ -123,6 +137,7 @@ export default function PublicNavbar({ user }: PublicNavbarProps) {
             </motion.div>
           )}
         </AnimatePresence>
+      {/* ✅ FIXED: టైపో క్లియర్ చేయబడింది */}
       </motion.nav>
 
       {!isHome && <div className="h-24 w-full flex-shrink-0" />}

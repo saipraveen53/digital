@@ -1,10 +1,12 @@
 import { Slot, usePathname } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { ArrowUp } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import PublicFooter from '../components/PublicFooter';
 import PublicNavbar from '../components/PublicNavbar';
 import { useAuth } from '../context/AuthContext';
+import { Drawer } from 'react-native-drawer-layout';
  
 export default function PublicLayout() {
   const { user } = useAuth();
@@ -23,6 +25,8 @@ export default function PublicLayout() {
  
   return (
     <View className="flex-1 bg-white">
+      <StatusBar style="dark" />
+
       <PublicNavbar user={user} />
  
       <ScrollView
@@ -36,7 +40,8 @@ export default function PublicLayout() {
           <Slot />
         </View>
  
-        <PublicFooter />
+        {pathname !== "/login" && pathname !== "/register" && <PublicFooter />}
+
       </ScrollView>
  
       {showTopButton && (
@@ -51,3 +56,4 @@ export default function PublicLayout() {
     </View>
   );
 }
+

@@ -1,0 +1,42 @@
+// app/oauth2/redirect.tsx
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
+import { useAuth } from '../context/AuthContext';
+
+export default function OAuth2RedirectHandler() {
+  const { token } = useLocalSearchParams<{ token: string }>();
+  const { loginWithGoogleToken } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    async function handleOAuthToken() {
+      if (token) {
+        try {
+          const result = await loginWithGoogleToken(token);
+          if (result.success) {
+            router.replace('/(user)/home');
+          } else {
+            router.replace('/(public)');
+          }
+        } catch (error) {
+          console.error("OAuth Redirect Token Handling Error:", error);
+          router.replace('/(public)');
+        }
+      } else {
+        router.replace('/(public)');
+      }
+    }
+
+    handleOAuthToken();
+  }, [token]);
+
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAF9F5' }}>
+      <ActivityIndicator size="large" color="#336956" />
+      <Text style={{ marginTop: 14, color: '#11231D', fontWeight: '600', fontSize: 16 }}>
+        Authenticating Secure Session...
+      </Text>
+    </View>
+  );
+}
