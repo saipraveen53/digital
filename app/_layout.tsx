@@ -5,12 +5,24 @@ import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
-//import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
 import "./globals.css";
 
-// Loading component
+// 🔥 Firebase imports
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
+// Web Google OAuth
+const GoogleOAuthProvider = Platform.OS === 'web'
+  ? require('@react-oauth/google').GoogleOAuthProvider
+  : ({ children }: any) => <>{children}</>;
+
+// 🔥 Google Sign-In Configure (Android/iOS)
+GoogleSignin.configure({
+  webClientId: '244036437664-1mpdpkua2p304d4tfk4ftfci93vfub4j.apps.googleusercontent.com',
+  offlineAccess: true,
+});
+
 function LoadingSpinner() {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5DC' }}>
@@ -19,12 +31,9 @@ function LoadingSpinner() {
     </View>
   );
 }
-const GoogleOAuthProvider =
-  Platform.OS === 'web'
-    ? require('@react-oauth/google').GoogleOAuthProvider
-    : ({ children }: any) => <>{children}</>;
+
 function RootLayoutContent() {
-  const { isInitializing } = useAuth(); 
+  const { isInitializing } = useAuth();
 
   if (isInitializing) {
     return <LoadingSpinner />;
@@ -35,17 +44,17 @@ function RootLayoutContent() {
 
 export default function RootLayout() {
   return (
-      <GoogleOAuthProvider clientId="341709776135-2gc8sr7belb8if4d19sse44dkvlr9rh7.apps.googleusercontent.com">
-        <AuthProvider>
-          <SubscriptionProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <SafeAreaProvider>
-                <RootLayoutContent />
-                <Toast />
-              </SafeAreaProvider>
-            </GestureHandlerRootView>
-          </SubscriptionProvider>
-        </AuthProvider>
-      </GoogleOAuthProvider>
+    <GoogleOAuthProvider clientId="244036437664-1mpdpkua2p304d4tfk4ftfci93vfub4j.apps.googleusercontent.com">
+      <AuthProvider>
+        <SubscriptionProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaProvider>
+              <RootLayoutContent />
+              <Toast />
+            </SafeAreaProvider>
+          </GestureHandlerRootView>
+        </SubscriptionProvider>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }

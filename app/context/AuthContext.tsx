@@ -1,205 +1,243 @@
+// app/context/AuthContext.tsx
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, useSegments } from 'expo-router';
-import { jwtDecode } from 'jwt-decode';
+import auth from '@react-native-firebase/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { router } from 'expo-router';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
-import { rootApi } from '../utils/axiosInstance';
 
 type UserRole = 'user' | 'admin';
-type SubscriptionTier = 'free' | 'monthly' | 'yearly';
 
 interface User {
   id: string;
-  email: string;
+  email: string | null;
   role: UserRole;
-  name: string;
-  subscription?: SubscriptionTier;
+  name: string | null;
   isLoggedIn: boolean;
-  token?: string;
-}
-
-interface JWTPayload {
-  role: Array<{ authority: string }>;
-  userId: string;
-  name: string;
-  sub: string;
-  iat: number;
-  exp: number;
+  photoURL?: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; message: string }>;
   loginWithGoogleToken: (token: string) => Promise<{ success: boolean; message: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
   isInitializing: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const extractUserFromToken = (token: string): User | null => {
-  try {
-    const decoded = jwtDecode<JWTPayload>(token);
-    const currentTime = Math.floor(Date.now() / 1000);
-    if (decoded.exp < currentTime) return null;
-
-    const authorities = decoded.role || [];
-    const isAdmin = authorities.some(auth => auth.authority.includes('ADMIN'));
-    const role: UserRole = isAdmin ? 'admin' : 'user';
-
-    const emailParts = decoded.sub.split('@');
-    const name = decoded.name || (emailParts.length > 0 ? emailParts[0] : 'User');
-
-    return { id: decoded.userId, email: decoded.sub, role, name, isLoggedIn: true, token };
-  } catch (error) {
-    return null;
-  }
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
-  const segments = useSegments();
 
+  // 🔥 Listen to auth state changes from Firebase
   useEffect(() => {
-    checkExistingAuth();
+    const unsubscribe = auth().onAuthStateChanged(async (firebaseUser) => {
+      if (firebaseUser) {
+        // User is signed in
+        const userData: User = {
+          id: firebaseUser.uid,
+          email: firebaseUser.email,
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          role: 'user', // Default role, you can add admin logic
+          isLoggedIn: true,
+          photoURL: firebaseUser.photoURL,
+        };
+        setUser(userData);
+        await AsyncStorage.setItem('userData', JSON.stringify(userData));
+      } else {
+        // User is signed out
+        setUser(null);
+        await AsyncStorage.removeItem('userData');
+      }
+      setIsInitializing(false);
+    });
+
+    return unsubscribe;
   }, []);
 
+  // Check existing auth on mount
   useEffect(() => {
-    if (!isInitializing) {
-      const inPublicGroup = segments[0] === '(public)';
-      if (user && user.isLoggedIn && inPublicGroup) {
-        if (user.role === 'admin') router.replace('/(admin)/dashboard');
-        else router.replace('/(user)/home');
-      } else if (!user && !inPublicGroup) {
-        router.replace('/(public)');
-      }
-    }
-  }, [user, isInitializing, segments]);
-
-  const checkExistingAuth = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const userDataString = await AsyncStorage.getItem('userData');
-      if (token && userDataString) {
-        const decoded = jwtDecode<JWTPayload>(token);
-        if (decoded.exp < Math.floor(Date.now() / 1000)) {
-          await AsyncStorage.multiRemove(['userToken', 'userData']);
-          setUser(null);
-        } else {
-          setUser({ ...JSON.parse(userDataString), isLoggedIn: true, token });
+    const checkAuth = async () => {
+      try {
+        const userDataString = await AsyncStorage.getItem('userData');
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          if (userData.isLoggedIn) {
+            setUser(userData);
+          }
         }
-      } else {
-        setUser(null);
+      } catch (error) {
+        console.error('Error checking auth:', error);
+      } finally {
+        setIsInitializing(false);
       }
-    } catch (error) {
-      await AsyncStorage.multiRemove(['userToken', 'userData']);
-      setUser(null);
-    } finally {
-      setIsInitializing(false);
-    }
-  };
+    };
+    checkAuth();
+  }, []);
 
-  const handleAuthSuccess = async (token: string, userData: User) => {
-    await AsyncStorage.setItem('userToken', token);
-    await AsyncStorage.setItem('userData', JSON.stringify({
-      id: userData.id,
-      email: userData.email,
-      role: userData.role,
-      name: userData.name,
-    }));
-    setUser(userData);
-    setIsLoading(false);
-    setTimeout(() => {
-      if (userData.role === 'admin') router.replace('/(admin)/dashboard');
-      else router.replace('/(user)/home');
-    }, 100);
-  };
-
+  // 🔥 Login with Email & Password (Firebase)
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await rootApi.post<string>('/api/auth/login', { email, password });
-      const token = response.data;
-      const userData = extractUserFromToken(token);
-      if (!userData) throw new Error('Invalid token');
-      
-      await handleAuthSuccess(token, userData);
+      const userCredential = await auth().signInWithEmailAndPassword(email, password);
+      const firebaseUser = userCredential.user;
+
+      const userData: User = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || email.split('@')[0],
+        role: 'user',
+        isLoggedIn: true,
+        photoURL: firebaseUser.photoURL,
+      };
+
+      setUser(userData);
+      await AsyncStorage.setItem('userData', JSON.stringify(userData));
+
+      // Navigate based on role
+      setTimeout(() => {
+        if (userData.role === 'admin') {
+          router.replace('/(admin)/dashboard');
+        } else {
+          router.replace('/(user)/home');
+        }
+      }, 100);
+
       return { success: true, message: `Welcome back, ${userData.name}!` };
     } catch (error: any) {
+      console.error('Login error:', error);
+      let message = 'Login failed. Please try again.';
+      if (error.code === 'auth/user-not-found') {
+        message = 'No account found with this email.';
+      } else if (error.code === 'auth/wrong-password') {
+        message = 'Incorrect password.';
+      } else if (error.code === 'auth/invalid-email') {
+        message = 'Invalid email address.';
+      }
+      return { success: false, message };
+    } finally {
       setIsLoading(false);
-      return { success: false, message: error.response?.data?.message || 'Login failed' };
     }
   };
 
-const loginWithGoogleToken = async (googleToken: string) => {
+  // 🔥 Login with Google (Native)
+  const loginWithGoogle = async () => {
     setIsLoading(true);
     try {
-      // 1. Send Google ID Token to backend
-      const response = await rootApi.post<{ token: string }>('/api/auth/google-login', { token: googleToken });
-      const jwtToken = response.data.token;
-      
-      // 2. Extract user data from the JWT Token returned by backend
-      const userData = extractUserFromToken(jwtToken);
-      
-      if (!userData) {
-        throw new Error('Invalid token received from server');
-      }
-      
-      // 3. Save token and update state (handleAuthSuccess handles the redirect)
-      await handleAuthSuccess(jwtToken, userData);
-      
-      return { success: true, message: `Welcome, ${userData.name}!` };
-      
-    } catch (error: any) {
-      console.error("Backend login failed:", error);
-      setIsLoading(false);
-      return { success: false, message: error.response?.data?.message || 'Google Login Failed' };
-    }
-  };
-  const logout = async () => {
-    const confirmLogout = () => {
-      return new Promise<boolean>((resolve) => {
-        if (typeof window !== 'undefined' && window.confirm) {
-          const result = window.confirm('Are you sure you want to logout?');
-          resolve(result);
+      // Check if Play Services are available (Android)
+      await GoogleSignin.hasPlayServices();
+
+      // Get the user's ID token
+      const { idToken } = await GoogleSignin.signIn();
+
+      // Create a Google credential with the token
+      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+
+      // Sign-in the user with the credential
+      const userCredential = await auth().signInWithCredential(googleCredential);
+      const firebaseUser = userCredential.user;
+
+      const userData: User = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+        role: 'user',
+        isLoggedIn: true,
+        photoURL: firebaseUser.photoURL,
+      };
+
+      setUser(userData);
+      await AsyncStorage.setItem('userData', JSON.stringify(userData));
+
+      setTimeout(() => {
+        if (userData.role === 'admin') {
+          router.replace('/(admin)/dashboard');
         } else {
-          Alert.alert(
-            'Logout',
-            'Are you sure you want to logout?',
-            [
-              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-              { text: 'Yes', onPress: () => resolve(true), style: 'destructive' },
-            ],
-            { cancelable: false }
-          );
+          router.replace('/(user)/home');
         }
-      });
-    };
+      }, 100);
 
-    const shouldLogout = await confirmLogout();
-    
-    if (shouldLogout) {
-      try {
-        await AsyncStorage.multiRemove(['userToken', 'userData']);
-        setUser(null);
-        router.replace('/(public)/login');
-      } catch (error) {
-        console.error('Error during logout:', error);
+      return { success: true, message: `Welcome, ${userData.name}!` };
+    } catch (error: any) {
+      console.error('Google Sign-In Error:', error);
+      let message = 'Google Sign-In failed.';
+      if (error.code === 'SIGN_IN_CANCELLED') {
+        message = 'Sign-in cancelled.';
+      } else if (error.code === 'IN_PROGRESS') {
+        message = 'Sign-in already in progress.';
+      } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+        message = 'Google Play Services not available.';
       }
+      return { success: false, message };
+    } finally {
+      setIsLoading(false);
     }
   };
 
- const value = {
-  user,
-  login,
-  logout,
-  loginWithGoogleToken,
-  isLoading,
-  isInitializing,
-};
+  // 🔥 Login with Google Token (for Web OAuth flow)
+  const loginWithGoogleToken = async (token: string) => {
+    setIsLoading(true);
+    try {
+      // Create credential from token
+      const googleCredential = auth.GoogleAuthProvider.credential(token);
+      const userCredential = await auth().signInWithCredential(googleCredential);
+      const firebaseUser = userCredential.user;
+
+      const userData: User = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+        role: 'user',
+        isLoggedIn: true,
+        photoURL: firebaseUser.photoURL,
+      };
+
+      setUser(userData);
+      await AsyncStorage.setItem('userData', JSON.stringify(userData));
+
+      setTimeout(() => {
+        if (userData.role === 'admin') {
+          router.replace('/(admin)/dashboard');
+        } else {
+          router.replace('/(user)/home');
+        }
+      }, 100);
+
+      return { success: true, message: `Welcome, ${userData.name}!` };
+    } catch (error: any) {
+      console.error('Google Token Login Error:', error);
+      return { success: false, message: 'Google login failed. Please try again.' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 🔥 Logout
+  const logout = async () => {
+    try {
+      await auth().signOut();
+      await GoogleSignin.signOut();
+      setUser(null);
+      await AsyncStorage.removeItem('userData');
+      router.replace('/(public)/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const value = {
+    user,
+    login,
+    logout,
+    loginWithGoogle,
+    loginWithGoogleToken,
+    isLoading,
+    isInitializing,
+  };
 
   if (isInitializing) {
     return null;
